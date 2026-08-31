@@ -11,7 +11,11 @@ export default function Dock() {
         className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
         📁
       </button>
-      <button className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
+      <button 
+        onClick={() => openWindow({
+          appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 600, height: 400, minWidth: 400, minHeight: 300, minimized: false, maximized: false
+        })}
+        className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
         💻
       </button>
     </div>

@@ -2,6 +2,7 @@ import MenuBar from './MenuBar';
 import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
+import TerminalApp from '../apps/terminal/TerminalApp';
 
 export default function Desktop() {
   const windows = useWindowStore(state => state.windows);
@@ -20,7 +21,8 @@ export default function Desktop() {
               {win.title}
             </div>
             <div className="flex-1 overflow-hidden relative text-black">
-              {win.appId === 'files' ? <FilesApp /> : 'Unknown App'}
+              {win.appId === 'files' && <FilesApp />}
+              {win.appId === 'terminal' && <TerminalApp />}
             </div>
           </div>
         ))}
