@@ -1,6 +1,7 @@
 import MenuBar from './MenuBar';
 import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
+import FilesApp from '../apps/files/FilesApp';
 
 export default function Desktop() {
   const windows = useWindowStore(state => state.windows);
@@ -18,8 +19,8 @@ export default function Desktop() {
             <div className="h-8 bg-gray-100 border-b flex items-center px-2 cursor-pointer font-medium text-sm">
               {win.title}
             </div>
-            <div className="flex-1 p-4 text-black">
-              Window Content
+            <div className="flex-1 overflow-hidden relative text-black">
+              {win.appId === 'files' ? <FilesApp /> : 'Unknown App'}
             </div>
           </div>
         ))}
