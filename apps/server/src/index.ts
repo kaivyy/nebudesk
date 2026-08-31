@@ -1,10 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import fs from 'fs/promises';
 import path from 'path';
+import pty from 'node-pty';
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: '*' });
+await fastify.register(websocket);
 
 const ALLOWED_ROOT = '/root/nebudesk';
 
@@ -32,6 +35,36 @@ fastify.get('/api/files', async (request, reply) => {
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
+});
+
+fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
+  const shell = process.env.SHELL || 'bash';
+  const ptyProcess = pty.spawn(shell, [], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 30,
+    cwd: process.env.HOME || '/',
+    env: process.env as Record<string, string>
+  });
+
+  ptyProcess.onData((data) => {
+    socket.send(JSON.stringify({ type: 'terminal.output', data }));
+  });
+
+  socket.on('message', (message) => {
+    try {
+      const msg = JSON.parse(message.toString());
+      if (msg.type === 'terminal.input') {
+        ptyProcess.write(msg.data);
+      } else if (msg.type === 'terminal.resize') {
+        ptyProcess.resize(msg.cols, msg.rows);
+      }
+    } catch (e) {}
+  });
+
+  socket.on('close', () => {
+    ptyProcess.kill();
+  });
 });
 
 fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
