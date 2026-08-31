@@ -18,7 +18,8 @@ export default function TerminalApp() {
     term.open(terminalRef.current);
     fitAddon.fit();
 
-    const ws = new WebSocket('ws://localhost:3001/ws/terminal');
+    const wsUrl = `ws://${window.location.hostname}:3001/ws/terminal`;
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'terminal.resize', cols: term.cols, rows: term.rows }));

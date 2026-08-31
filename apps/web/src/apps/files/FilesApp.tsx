@@ -14,7 +14,8 @@ export default function FilesApp() {
 
   const loadFiles = async (dir: string) => {
     try {
-      const res = await fetch(`http://localhost:3001/api/files?dir=${encodeURIComponent(dir)}`);
+      const backendUrl = `http://${window.location.hostname}:3001`;
+      const res = await fetch(`${backendUrl}/api/files?dir=${encodeURIComponent(dir)}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setFiles(data.files);
