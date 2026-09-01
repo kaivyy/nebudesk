@@ -289,8 +289,19 @@ export default function AppsApp() {
                 </div>
                 <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                   <div className="flex space-x-1">
-                    <button onClick={() => handleAction(app.id, 'start')} className="p-1.5 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
-                    <button onClick={() => handleAction(app.id, 'stop')} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                    
+                    {(() => {
+                      let isRunning = false;
+                      if (app.runtime === 'docker') isRunning = dockerContainers.some(c => c.Id?.startsWith(app.identifier) && c.State === 'running');
+                      if (app.runtime === 'pm2') isRunning = pm2Apps.some(p => p.name === app.identifier && p.pm2_env?.status === 'online');
+                      
+                      return isRunning ? (
+                        <button onClick={() => handleAction(app.id, 'stop')} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                      ) : (
+                        <button onClick={() => handleAction(app.id, 'start')} className="p-1.5 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
+                      );
+                    })()}
+
                     <button onClick={() => handleAction(app.id, 'restart')} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="Restart"><RotateCw size={14} /></button>
                     <button onClick={() => handleViewLogs(app.id, app.name)} className="p-1.5 text-gray-600 hover:bg-gray-200 rounded" title="Logs"><FileText size={14} /></button>
                   </div>
@@ -334,8 +345,12 @@ export default function AppsApp() {
                           <span className={`px-2 py-0.5 ${p.pm2_env?.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-[10px] font-bold uppercase rounded-full`}>{p.pm2_env?.status}</span>
                         </td>
                         <td className="py-2 px-4 text-right flex justify-end items-center space-x-1">
-                          <button onClick={() => handleDiscoveryAction('pm2', p.name, 'start')} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
-                          <button onClick={() => handleDiscoveryAction('pm2', p.name, 'stop')} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                          
+                          {p.pm2_env?.status === 'online' ? (
+                            <button onClick={() => handleDiscoveryAction('pm2', p.name, 'stop')} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                          ) : (
+                            <button onClick={() => handleDiscoveryAction('pm2', p.name, 'start')} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
+                          )}
                           <button onClick={() => handleDiscoveryAction('pm2', p.name, 'restart')} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Restart"><RotateCw size={14} /></button>
                           <button onClick={() => handleDiscoveryLogs('pm2', p.name, p.name)} className="p-1 text-gray-600 hover:bg-gray-200 rounded" title="Logs"><FileText size={14} /></button>
                           
@@ -384,8 +399,12 @@ export default function AppsApp() {
                           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full">{c.State}</span>
                         </td>
                         <td className="py-2 px-4 text-right flex justify-end items-center space-x-1">
-                          <button onClick={() => handleDiscoveryAction('docker', c.Id, 'start')} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
-                          <button onClick={() => handleDiscoveryAction('docker', c.Id, 'stop')} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                          
+                          {c.State === 'running' ? (
+                            <button onClick={() => handleDiscoveryAction('docker', c.Id, 'stop')} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Stop"><Square size={14} /></button>
+                          ) : (
+                            <button onClick={() => handleDiscoveryAction('docker', c.Id, 'start')} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Start"><Play size={14} /></button>
+                          )}
                           <button onClick={() => handleDiscoveryAction('docker', c.Id, 'restart')} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Restart"><RotateCw size={14} /></button>
                           <button onClick={() => handleDiscoveryLogs('docker', c.Id, name)} className="p-1 text-gray-600 hover:bg-gray-200 rounded" title="Logs"><FileText size={14} /></button>
                           
