@@ -498,7 +498,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
 
               <button onClick={(e) => {
                 e.stopPropagation();
-                store.openWindow({ appId: 'terminal', title: 'Terminal', x: 250, y: 200, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false } as any);
+                store.openWindow({ appId: 'terminal', payload: { cwd: workspace }, title: 'Terminal', x: 250, y: 200, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false } as any);
               }} title="Open Terminal" className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><TerminalSquare size={13} /></button>
             </div>
           </div>

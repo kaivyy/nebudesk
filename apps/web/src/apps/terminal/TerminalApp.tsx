@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import 'xterm/css/xterm.css';
+import { useWindowStore } from '../../stores/windowStore';
 
 export default function TerminalApp({ winId }: { winId: string }) {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -18,7 +19,9 @@ export default function TerminalApp({ winId }: { winId: string }) {
     term.open(terminalRef.current);
     fitAddon.fit();
 
-    const wsUrl = `ws://${window.location.hostname}:3030/ws/terminal?termId=${encodeURIComponent(winId)}`;
+        const win = useWindowStore.getState().windows.find(w => w.id === winId) as any;
+    const cwd = win?.payload?.cwd || '';
+    const wsUrl = `ws://${window.location.hostname}:3030/ws/terminal?termId=${encodeURIComponent(winId)}&cwd=${encodeURIComponent(cwd)}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

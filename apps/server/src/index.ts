@@ -212,13 +212,14 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
   }
 
   const termId = (req.query as any).termId || 'default';
+  const cwd = (req.query as any).cwd || process.env.HOME || '/';
   const sessionName = `nebudesk_term_${termId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
-  const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', sessionName], {
+  const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', sessionName, '-c', cwd], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
-    cwd: process.env.HOME || '/',
+    cwd: cwd,
     env: process.env as Record<string, string>
   });
 
