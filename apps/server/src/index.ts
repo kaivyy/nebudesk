@@ -6,7 +6,10 @@ import path from 'path';
 import pty from 'node-pty';
 import si from 'systeminformation';
 import Docker from 'dockerode';
+import { exec } from 'child_process';
+import util from 'util';
 
+const execAsync = util.promisify(exec);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
 const fastify = Fastify({ logger: true });
@@ -136,6 +139,33 @@ fastify.get('/api/docker/containers', async (request, reply) => {
       state: c.State,
       status: c.Status
     }));
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.get('/api/services', async (request, reply) => {
+  try {
+    const { stdout } = await execAsync('systemctl list-units --type=service --all --no-pager --no-legend');
+    const services = stdout.split('\n').filter(Boolean).map(line => {
+      const match = line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/);
+      if (match) {
+        return { name: match[1], load: match[2], active: match[3], sub: match[4], desc: match[5] };
+      }
+      return null;
+    }).filter(Boolean);
+    return services;
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.get('/api/services/logs', async (request, reply) => {
+  const { name } = request.query as { name: string };
+  if (!name) return reply.status(400).send({ error: 'Service name required' });
+  try {
+    const { stdout } = await execAsync(`journalctl -u ${name} -n 100 --no-pager`);
+    return { logs: stdout };
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
