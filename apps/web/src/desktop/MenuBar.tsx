@@ -71,14 +71,14 @@ export default function MenuBar() {
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20 overflow-hidden">
               <button onClick={() => handleAction(() => setAboutModal(true))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About NebuDesk</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings...</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'system', title: 'System Monitor', x: 220, y: 170, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Monitor...</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Task Manager...</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 240, y: 190, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager...</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager...</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'system', title: 'System Monitor', x: 220, y: 170, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Monitor</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Task Manager</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 240, y: 190, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
-              <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart Desktop...</button>
-              <button onClick={() => handleAction(handleLogout)} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Log Out admin...</button>
+              <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart Desktop</button>
+              <button onClick={() => handleAction(handleLogout)} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Log Out admin</button>
             </div>
           )}
         </div>
@@ -120,7 +120,7 @@ export default function MenuBar() {
                   }
                 }));
               })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
-                <span>Open File...</span><span className="text-gray-400 group-hover:text-white/70">⇧⌘O</span>
+                <span>Open File</span><span className="text-gray-400 group-hover:text-white/70">⇧⌘O</span>
               </button>
               <button onClick={() => handleAction(() => {
                 document.dispatchEvent(new CustomEvent('desktop:pick-folder', { 
@@ -136,7 +136,7 @@ export default function MenuBar() {
                   } 
                 }));
               })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
-                <span>Open Folder...</span><span className="text-gray-400 group-hover:text-white/70">⌘O</span>
+                <span>Open Folder</span><span className="text-gray-400 group-hover:text-white/70">⌘O</span>
               </button>
               <button onClick={() => handleAction(() => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
                 <span>New Terminal</span><span className="text-gray-400 group-hover:text-white/70">⌘T</span>
