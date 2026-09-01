@@ -23,7 +23,6 @@ export default function Dock() {
     { id: 'files', title: 'Finder', icon: '/icons/finder.png' },
     { id: 'code', title: 'NebuCode', icon: '/icons/vscode.png' },
     { id: 'terminal', title: 'Terminal', icon: '/icons/terminal.png' },
-    { id: 'system', title: 'Activity Monitor', icon: '/icons/activity_monitor.svg' },
     { id: 'tasks', title: 'Task Manager', icon: '/icons/automator.png' },
     { id: 'docker', title: 'Docker', icon: '/icons/docker.png' },
     { id: 'services', title: 'Services', icon: '/icons/services.svg' },
