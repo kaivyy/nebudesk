@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.1.2] - 2026-09-02
+### ✨ Features & Polishing
+- **Activity Monitor Consolidation**: Merged the old "System Monitor" and "Task Manager" into a single, unified macOS-style Activity Monitor. Features real-time background caching via `top` to guarantee flawless instantaneous CPU reporting, and a new Force Kill modal for precision task management.
+- **Docker Manager Revamp**: Entirely rebuilt the Docker App. Fixed uppercase `dockerode` API mismatches that caused empty lists, and added full GUI controls (Start, Stop, Restart, Remove) alongside dynamic status badges.
+- **MenuBar & Tray Enhancement**: Added macOS-style system tray icons (Spotlight, Control Center, Wi-Fi, Battery) to the right side. Fixed a critical z-index bug to ensure dropdown menus reliably float above all application windows. Restored missing Logout functionality.
+- **NebuDesk Custom Branding**: Transformed the generic web title to "NebuDesk", injected a modern SVG favicon, and shipped a stunning new cosmic nebula 4K wallpaper as the default background.
+- **Touch-Friendly Controls**: Stripped hover-only opacity states from critical buttons (like Task Manager's Kill action) to ensure 100% usability on mobile devices operating in Desktop Mode.
+
 ## [v0.1.1] - 2026-09-02
 ### 🚀 Dependency Upgrades & Fixes
 - **Port 5050 Fix**: Resolved an issue where the Vite frontend server failed to bind correctly to port 5050.
