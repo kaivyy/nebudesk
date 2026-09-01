@@ -4,6 +4,7 @@ import {
   FolderPlus, FilePlus, Home, HardDrive, Settings,
   AlignJustify, Grid, LayoutGrid
 } from 'lucide-react';
+import { useWindowStore } from '../../stores/windowStore';
 
 interface FileEntry {
   name: string;
@@ -199,7 +200,16 @@ export default function FilesApp() {
                 {filteredFiles.map(file => (
                   <tr 
                     key={file.name} 
-                    onClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
+                    onClick={() => {
+                      if (file.isDir) {
+                        setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`);
+                      } else {
+                        const path = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+                        useWindowStore.getState().openWindow({
+                          appId: 'code', title: `Code - ${file.name}`, x: 150, y: 150, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path
+                        } as any, true);
+                      }
+                    }}
                     className="border-b border-gray-50 hover:bg-blue-50/50 group cursor-pointer transition-colors"
                   >
                     <td className="py-2 flex items-center space-x-3">
@@ -233,7 +243,16 @@ export default function FilesApp() {
               {filteredFiles.map(file => (
                 <div 
                   key={file.name}
-                  onClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
+                  onClick={() => {
+                    if (file.isDir) {
+                      setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`);
+                    } else {
+                      const path = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+                      useWindowStore.getState().openWindow({
+                        appId: 'code', title: `Code - ${file.name}`, x: 150, y: 150, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path
+                      } as any, true);
+                    }
+                  }}
                   className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-blue-50 group cursor-pointer text-center transition-colors relative"
                 >
                   {file.isDir ? (

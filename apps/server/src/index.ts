@@ -95,6 +95,30 @@ fastify.get('/api/files', { preValidation: [fastify.authenticate] }, async (requ
   }
 });
 
+fastify.get('/api/files/content', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p } = request.query as { p: string };
+  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    const content = await fs.readFile(targetPath, 'utf-8');
+    return { content };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.put('/api/files/content', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p, content } = request.body as { p: string; content: string };
+  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    await fs.writeFile(targetPath, content, 'utf-8');
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.post('/api/files/folder', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p, name } = request.body as { p: string; name: string };
   const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
