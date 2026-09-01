@@ -64,7 +64,7 @@ export default function Window({ win, children }: WindowProps) {
 
   return (
     <div 
-      className="absolute bg-white rounded-xl shadow-2xl border border-[#3e3e42]/30 flex flex-col overflow-hidden bg-white/95"
+      className="absolute rounded-xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-black/20 flex flex-col overflow-hidden bg-transparent"
       style={style}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
