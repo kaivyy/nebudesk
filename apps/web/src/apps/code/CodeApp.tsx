@@ -117,7 +117,7 @@ function FileTreeNode({
         <span className="text-sm truncate flex-1 select-none">{name}</span>
         
         {/* Actions (Delete) */}
-        <div className="opacity-0 group-hover:opacity-100 pr-2 flex items-center">
+        <div className="pr-2 flex items-center">
           <button 
             onClick={(e) => onAction(e, 'delete', path)}
             className="p-0.5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded"
