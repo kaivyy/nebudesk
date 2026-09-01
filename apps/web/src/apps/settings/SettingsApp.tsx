@@ -137,8 +137,8 @@ export default function SettingsApp() {
                 <h3 className="font-semibold mb-4 flex items-center"><HardDrive size={16} className="mr-2 text-gray-500"/> Storage</h3>
                 {sysInfo.storage.map((disk: any, i: number) => (
                   <div key={i} className="mb-4 last:mb-0">
-                    <div className="flex justify-between mb-2">
-                      <span className="font-medium">{disk.mount} <span className="text-gray-400 text-xs ml-1">({disk.type})</span></span>
+                    <div className="flex justify-between mb-2 items-center">
+                      <span className="font-medium flex-1 truncate mr-2" title={disk.mount}>{disk.mount} <span className="text-gray-400 text-xs ml-1">({disk.type})</span></span>
                       <span className="text-gray-500 text-xs">{formatBytes(disk.size - disk.used)} available of {formatBytes(disk.size)}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
