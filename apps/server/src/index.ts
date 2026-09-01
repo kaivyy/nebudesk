@@ -11,13 +11,19 @@ import Docker from 'dockerode';
 import { exec } from 'child_process';
 import util from 'util';
 import bcrypt from 'bcrypt';
-import { initDb, dbGet, dbRun, dbAll } from './db';
+import { initDb, dbGet, dbRun, dbAll } from './db.js';
 
-import registerExtensions from './api_extensions';
+import registerExtensions from './api_extensions.js';
 import { syncProxyConfig, syncCloudflareDNS } from './proxy.js';
 
 const execAsync = util.promisify(exec);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: any;
+  }
+}
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { 
@@ -35,7 +41,7 @@ fastify.decorate('authenticate', async (request: any, reply: any) => {
   try {
     const token = request.cookies.token;
     if (!token) throw new Error('No token');
-    const decoded = fastify.jwt.verify(token);
+    const decoded = fastify.jwt.verify(token || '');
     request.user = decoded;
   } catch (err) {
     reply.status(401).send({ error: 'Unauthorized' });
@@ -182,7 +188,7 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
   }
   const token = tokenCookie.split('=')[1];
   try {
-    fastify.jwt.verify(token);
+    fastify.jwt.verify(token || "");
   } catch (e) {
     connection.close();
     return;
@@ -195,7 +201,7 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
-    cwd: process.env.HOME,
+    cwd: process.env.HOME || '/',
     env: process.env as Record<string, string>
   });
 
@@ -287,7 +293,7 @@ fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (r
   try {
     const { stdout } = await execAsync('systemctl list-units --type=service --all --output=json');
     const parsed = JSON.parse(stdout);
-    const services = parsed.map(s => ({
+    const services = parsed.map((s: any) => ({
       name: s.unit,
       load: s.load,
       active: s.active,
@@ -322,6 +328,53 @@ fastify.post('/api/settings', { preValidation: [fastify.authenticate] }, async (
 });
 
 // Applications API (Control Panel)
+fastify.post('/api/applications/:id/action', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params;
+  const { action } = request.body; // 'start' | 'stop' | 'restart'
+  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
+  if (!app) return reply.status(404).send({ error: 'App not found' });
+
+  try {
+    if (app.runtime === 'docker') {
+      const container = docker.getContainer(app.identifier);
+      if (action === 'start') await container.start();
+      if (action === 'stop') await container.stop();
+      if (action === 'restart') await container.restart();
+    } else if (app.runtime === 'pm2') {
+      await execAsync(`pm2 ${action} ${app.identifier}`);
+    } else if (app.runtime === 'systemd') {
+      await execAsync(`sudo systemctl ${action} ${app.identifier}`);
+    }
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.get('/api/applications/:id/logs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params;
+  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
+  if (!app) return reply.status(404).send({ error: 'App not found' });
+
+  try {
+    let logs = '';
+    if (app.runtime === 'docker') {
+      const container = docker.getContainer(app.identifier);
+      const logBuffer = await container.logs({ stdout: true, stderr: true, tail: 100, timestamps: true });
+      logs = logBuffer.toString('utf-8').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, ''); // strip docker multiplex headers roughly
+    } else if (app.runtime === 'pm2') {
+      const { stdout } = await execAsync(`pm2 logs ${app.identifier} --lines 100 --nostream`);
+      logs = stdout;
+    } else if (app.runtime === 'systemd') {
+      const { stdout } = await execAsync(`journalctl -u ${app.identifier} -n 100 --no-pager`);
+      logs = stdout;
+    }
+    return { logs };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.get('/api/applications', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   return await dbAll('SELECT * FROM Applications ORDER BY createdAt DESC');
 });
@@ -369,6 +422,7 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
   
   if (app) {
     await syncProxyConfig();
+    if (app.cfEnabled) await syncCloudflareDNS(app.publicDomain, 'delete');
   }
   return { success: true };
 });
