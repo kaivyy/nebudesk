@@ -149,7 +149,10 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
     return;
   }
 
-  const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', 'nebudesk_term'], {
+  const termId = (req.query as any).termId || 'default';
+  const sessionName = `nebudesk_term_${termId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', sessionName], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,

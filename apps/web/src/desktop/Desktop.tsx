@@ -18,7 +18,7 @@ export default function Desktop() {
         {windows.map(win => (
           <Window key={win.id} win={win}>
             {win.appId === 'files' && <FilesApp />}
-            {win.appId === 'terminal' && <TerminalApp />}
+            {win.appId === 'terminal' && <TerminalApp winId={win.id} />}
             {win.appId === 'system' && <SystemApp />}
             {win.appId === 'docker' && <DockerApp />}
             {win.appId === 'services' && <ServicesApp />}
