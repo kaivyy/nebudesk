@@ -4,6 +4,7 @@ import websocket from '@fastify/websocket';
 import fs from 'fs/promises';
 import path from 'path';
 import pty from 'node-pty';
+import si from 'systeminformation';
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: '*' });
@@ -65,6 +66,61 @@ fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
   socket.on('close', () => {
     ptyProcess.kill();
   });
+});
+
+fastify.get('/api/system', async (request, reply) => {
+  try {
+    const [cpu, mem, fsSize, network] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.fsSize(),
+      si.networkStats()
+    ]);
+    return {
+      cpu: {
+        currentLoad: cpu.currentLoad,
+        cores: cpu.cpus.map(c => c.load)
+      },
+      memory: {
+        total: mem.total,
+        used: mem.used,
+        active: mem.active,
+        swapTotal: mem.swaptotal,
+        swapUsed: mem.swapused
+      },
+      storage: fsSize.map(fs => ({
+        fs: fs.fs,
+        type: fs.type,
+        size: fs.size,
+        used: fs.used,
+        use: fs.use,
+        mount: fs.mount
+      })),
+      network: network.map(net => ({
+        iface: net.iface,
+        rx_sec: net.rx_sec,
+        tx_sec: net.tx_sec
+      }))
+    };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.get('/api/processes', async (request, reply) => {
+  try {
+    const processes = await si.processes();
+    return processes.list.map(p => ({
+      pid: p.pid,
+      name: p.name,
+      cpu: p.cpu,
+      mem: p.mem,
+      user: p.user,
+      state: p.state
+    })).slice(0, 100);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
 });
 
 fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
