@@ -3,7 +3,7 @@ import { useWindowStore } from '../../stores/windowStore';
 import Editor from '@monaco-editor/react';
 import { 
   Folder, File, ChevronRight, ChevronDown, FileCode2, FileJson, FileText,
-  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, Trash2, X
+  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, Trash2, X, FilePlus, TerminalSquare, RefreshCw
 } from 'lucide-react';
 
 interface FileEntry {
@@ -157,6 +157,7 @@ function FileTreeNode({
 
 export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?: string, winId?: string }) {
   const store = useWindowStore();
+  const [promptModal, setPromptModal] = useState<{type: 'folder' | 'file', onSubmit: (name: string) => void} | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string, isDir: boolean } | null>(null);
 
   const handleOpenNewWindow = () => {
@@ -453,28 +454,52 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         
         {/* Explorer Panel */}
         <div className={`flex-1 overflow-y-auto outline-none pb-4 ${activeActivity === 'explorer' ? 'block' : 'hidden'}`}>
-          <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-pointer group">
-            <div className="flex items-center space-x-1 uppercase" onClick={() => {
+          <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-default group">
+            <div className="flex items-center space-x-1 uppercase cursor-pointer" onClick={() => {
               document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
-                detail: {
-                  initialPath: workspace,
-                  onSelect: (p: string) => setWorkspace(p)
-                }
+                detail: { initialPath: workspace, onSelect: (p: string) => setWorkspace(p) }
               }));
-            }}>
+            }} title="Change Workspace Folder">
               <ChevronDown size={14} />
-              <span>{workspace.split('/').pop() || 'ROOT'}</span>
+              <span className="truncate max-w-[90px]">{workspace.split('/').pop() || 'ROOT'}</span>
             </div>
-            <div className="opacity-0 group-hover:opacity-100 flex space-x-1 pr-1">
+            
+            {/* VSCode Style Actions */}
+            <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 pr-1">
               <button onClick={(e) => {
                 e.stopPropagation();
-                document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
-                  detail: {
-                    initialPath: workspace,
-                    onSelect: (p: string) => setWorkspace(p)
-                  }
-                }));
-              }} title="Open Folder" className="p-0.5 hover:bg-gray-600 rounded"><FolderPlus size={14} /></button>
+                setPromptModal({ type: 'file', onSubmit: async (name: string) => {
+                  const baseUrl = `http://${window.location.hostname}:3030`;
+                  await fetch(`${baseUrl}/api/files/create`, {
+                    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: workspace + '/' + name, type: 'file' })
+                  });
+                  loadWorkspace();
+                  openFile(workspace + '/' + name);
+                }});
+              }} title="New File..." className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><FilePlus size={14} /></button>
+              
+              <button onClick={(e) => {
+                e.stopPropagation();
+                setPromptModal({ type: 'folder', onSubmit: async (name: string) => {
+                  const baseUrl = `http://${window.location.hostname}:3030`;
+                  await fetch(`${baseUrl}/api/files/create`, {
+                    method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: workspace + '/' + name, type: 'folder' })
+                  });
+                  loadWorkspace();
+                }});
+              }} title="New Folder..." className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><FolderPlus size={14} /></button>
+              
+              <button onClick={(e) => {
+                e.stopPropagation();
+                loadWorkspace();
+              }} title="Refresh Explorer" className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><RefreshCw size={13} /></button>
+
+              <button onClick={(e) => {
+                e.stopPropagation();
+                store.openWindow({ appId: 'terminal', title: 'Terminal', x: 250, y: 200, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false } as any);
+              }} title="Open Terminal" className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><TerminalSquare size={13} /></button>
             </div>
           </div>
           
@@ -652,7 +677,35 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     </div>
     </div>
 
-      {/* Context Menu */}
+      
+      {/* VSCode Style Prompt Modal */}
+      {promptModal && (
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-[1px]" onClick={() => setPromptModal(null)}>
+          <div className="bg-[#252526] rounded-md shadow-2xl w-80 overflow-hidden border border-[#3e3e42]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-2 border-b border-[#3e3e42] bg-[#2d2d2d]">
+              <h3 className="font-semibold text-[13px] text-gray-300">{promptModal.type === 'folder' ? 'Create New Folder' : 'Create New File'}</h3>
+            </div>
+            <div className="p-4">
+              <input
+                autoFocus
+                type="text"
+                className="w-full bg-[#3c3c3c] border border-[#3e3e42] text-[#cccccc] rounded px-3 py-1.5 text-[13px] focus:outline-none focus:border-blue-500"
+                placeholder={promptModal.type === 'folder' ? 'Folder name...' : 'File name...'}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    promptModal.onSubmit(e.currentTarget.value);
+                    setPromptModal(null);
+                  } else if (e.key === 'Escape') {
+                    setPromptModal(null);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Context Menu */} 
       {contextMenu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => {e.preventDefault(); setContextMenu(null);}}></div>
