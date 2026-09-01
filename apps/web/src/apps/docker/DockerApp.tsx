@@ -8,7 +8,7 @@ export default function DockerApp() {
     const fetchContainers = async () => {
       try {
         const baseUrl = `http://${window.location.hostname}:3001`;
-        const res = await fetch(`${baseUrl}/api/docker/containers`);
+        const res = await fetch(`${baseUrl}/api/docker/containers`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch containers');
         setContainers(await res.json());
       } catch (err: any) {

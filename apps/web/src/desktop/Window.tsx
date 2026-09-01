@@ -1,8 +1,9 @@
-import { useRef, useEffect, useState } from 'react';
-import { useWindowStore, WindowState } from '../stores/windowStore';
+import { useRef, useState } from 'react';
+import { useWindowStore } from '../stores/windowStore';
+import type { DesktopWindow } from '../stores/windowStore';
 
 interface WindowProps {
-  win: WindowState;
+  win: DesktopWindow;
   children: React.ReactNode;
 }
 

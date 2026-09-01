@@ -10,10 +10,10 @@ export default function SystemApp() {
       try {
         const baseUrl = `http://${window.location.hostname}:3001`;
         if (activeTab === 'overview') {
-          const res = await fetch(`${baseUrl}/api/system`);
+          const res = await fetch(`${baseUrl}/api/system`, { credentials: 'include' });
           if (res.ok) setStats(await res.json());
         } else if (activeTab === 'processes') {
-          const res = await fetch(`${baseUrl}/api/processes`);
+          const res = await fetch(`${baseUrl}/api/processes`, { credentials: 'include' });
           if (res.ok) setProcesses(await res.json());
         }
       } catch (e) {}

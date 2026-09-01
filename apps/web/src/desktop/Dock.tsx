@@ -3,7 +3,7 @@ import { useWindowStore } from '../stores/windowStore';
 export default function Dock() {
   const { windows, openWindow, bringToFront } = useWindowStore();
 
-  const handleAppClick = (appId: string, defaultTitle: string, emoji: string) => {
+  const handleAppClick = (appId: string, defaultTitle: string) => {
     const existing = windows.find(w => w.appId === appId);
     if (existing) {
       if (existing.minimized) {
@@ -34,7 +34,7 @@ export default function Dock() {
         return (
           <div key={app.id} className="relative flex flex-col items-center">
             <button 
-              onClick={() => handleAppClick(app.id, app.title, app.emoji)}
+              onClick={() => handleAppClick(app.id, app.title)}
               className={`w-12 h-12 ${app.color} rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform shadow-lg`}
             >
               {app.emoji}

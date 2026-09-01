@@ -10,7 +10,7 @@ export default function ServicesApp() {
   const fetchServices = async () => {
     try {
       const baseUrl = `http://${window.location.hostname}:3001`;
-      const res = await fetch(`${baseUrl}/api/services`);
+      const res = await fetch(`${baseUrl}/api/services`, { credentials: 'include' });
       if (res.ok) setServices(await res.json());
     } catch (err: any) {
       setError(err.message);
@@ -20,7 +20,7 @@ export default function ServicesApp() {
   const fetchLogs = async (name: string) => {
     try {
       const baseUrl = `http://${window.location.hostname}:3001`;
-      const res = await fetch(`${baseUrl}/api/services/logs?name=${encodeURIComponent(name)}`);
+      const res = await fetch(`${baseUrl}/api/services/logs?name=${encodeURIComponent(name)}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs);
