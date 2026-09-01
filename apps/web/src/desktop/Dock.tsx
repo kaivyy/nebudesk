@@ -20,14 +20,14 @@ export default function Dock() {
   };
 
   const apps = [
-    { id: 'files', title: 'Files', emoji: '📁', color: 'bg-blue-500' },
-    { id: 'code', title: 'NebuCode', emoji: '📝', color: 'bg-blue-600' },
-    { id: 'terminal', title: 'Terminal', emoji: '💻', color: 'bg-black' },
-    { id: 'system', title: 'System Monitor', emoji: '📊', color: 'bg-gray-800' },
-    { id: 'tasks', title: 'Task Manager', emoji: '⚡', color: 'bg-red-500' },
-    { id: 'docker', title: 'Docker', emoji: '🐳', color: 'bg-blue-700' },
-    { id: 'services', title: 'Services', emoji: '⚙️', color: 'bg-red-600' },
-    { id: 'settings', title: 'Settings', emoji: '⚙️', color: 'bg-gray-400' }
+    { id: 'files', title: 'Finder', icon: '/icons/finder.png' },
+    { id: 'code', title: 'NebuCode', icon: '/icons/vscode.png' },
+    { id: 'terminal', title: 'Terminal', icon: '/icons/terminal.png' },
+    { id: 'system', title: 'Activity Monitor', icon: '/icons/activity_monitor.png' },
+    { id: 'tasks', title: 'Automator', icon: '/icons/automator.png' },
+    { id: 'docker', title: 'Docker', icon: '/icons/docker.png' },
+    { id: 'services', title: 'Services', icon: '/icons/services.png' },
+    { id: 'settings', title: 'System Settings', icon: '/icons/settings.png' }
   ];
 
   return (
@@ -35,14 +35,20 @@ export default function Dock() {
       {apps.map(app => {
         const isOpen = windows.some(w => w.appId === app.id);
         return (
-          <div key={app.id} className="relative flex flex-col items-center flex-shrink-0">
+          <div key={app.id} className="relative flex flex-col items-center flex-shrink-0 group">
             <button 
               onClick={() => handleAppClick(app.id, app.title)}
-              className={`w-12 h-12 sm:w-14 sm:h-14 ${app.color} rounded-xl flex items-center justify-center text-2xl sm:text-3xl hover:scale-110 transition-transform shadow-lg focus:outline-none`}
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none"
+              title={app.title}
             >
-              {app.emoji}
+              <img src={app.icon} alt={app.title} className="w-full h-full object-contain drop-shadow-md" />
             </button>
-            {isOpen && <div className="absolute -bottom-1.5 w-1 h-1 bg-white rounded-full"></div>}
+            {isOpen && <div className="absolute -bottom-1 w-1 h-1 bg-white/80 rounded-full"></div>}
+            
+            {/* macOS Tooltip */}
+            <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-black/60 backdrop-blur-md text-white text-xs px-3 py-1 rounded-md whitespace-nowrap shadow-lg border border-white/10">
+              {app.title}
+            </div>
           </div>
         );
       })}
