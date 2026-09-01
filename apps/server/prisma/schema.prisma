@@ -1,0 +1,25 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  desktop   DesktopState?
+}
+
+model DesktopState {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  wallpaper   String   @default("default")
+  theme       String   @default("system")
+  windowsJson String   @default("[]") // JSON string of open windows
+  user        User     @relation(fields: [userId], references: [id])
+}

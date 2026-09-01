@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
 import fs from 'fs/promises';
 import path from 'path';
 import pty from 'node-pty';
@@ -8,57 +10,118 @@ import si from 'systeminformation';
 import Docker from 'dockerode';
 import { exec } from 'child_process';
 import util from 'util';
+import bcrypt from 'bcrypt';
+import { initDb, dbGet, dbRun } from './db';
 
 const execAsync = util.promisify(exec);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
 const fastify = Fastify({ logger: true });
-await fastify.register(cors, { origin: '*' });
+await fastify.register(cors, { 
+  origin: true,
+  credentials: true 
+});
 await fastify.register(websocket);
+await fastify.register(jwt, { secret: 'nebudesk-super-secret' });
+await fastify.register(cookie);
+
+await initDb();
+
+fastify.decorate('authenticate', async (request: any, reply: any) => {
+  try {
+    const token = request.cookies.token;
+    if (!token) throw new Error('No token');
+    const decoded = fastify.jwt.verify(token);
+    request.user = decoded;
+  } catch (err) {
+    reply.status(401).send({ error: 'Unauthorized' });
+  }
+});
 
 const ALLOWED_ROOT = '/root/nebudesk';
 
-fastify.get('/api/files', async (request, reply) => {
-  const { dir = '/' } = request.query as { dir: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, dir.replace(/^\/+/, ''));
+fastify.post('/api/auth/login', async (request, reply) => {
+  const { username, password } = request.body as any;
+  const user: any = await dbGet(`SELECT * FROM User WHERE username = ?`, [username]);
+  if (!user) return reply.status(401).send({ error: 'Invalid credentials' });
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return reply.status(401).send({ error: 'Invalid credentials' });
   
-  if (!targetPath.startsWith(ALLOWED_ROOT)) {
-    return reply.status(403).send({ error: 'Forbidden path traversal' });
-  }
+  const token = fastify.jwt.sign({ id: user.id, username: user.username });
+  reply.setCookie('token', token, {
+    path: '/',
+    httpOnly: true,
+    secure: false, // in prod use true
+    sameSite: 'lax'
+  });
+  return { success: true };
+});
+
+fastify.post('/api/auth/logout', async (request, reply) => {
+  reply.clearCookie('token', { path: '/' });
+  return { success: true };
+});
+
+fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const state = await dbGet(`SELECT * FROM DesktopState WHERE userId = ?`, [request.user.id]);
+  return state;
+});
+
+fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { windowsJson } = request.body as any;
+  await dbRun(`UPDATE DesktopState SET windowsJson = ? WHERE userId = ?`, [windowsJson, request.user.id]);
+  return { success: true };
+});
+
+fastify.get('/api/files', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p = '/' } = request.query as { p: string };
+  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
   
   try {
-    const entries = await fs.readdir(targetPath, { withFileTypes: true });
-    const files = await Promise.all(entries.map(async (entry) => {
-      const fullPath = path.join(targetPath, entry.name);
-      const stat = await fs.stat(fullPath);
-      return {
-        name: entry.name,
-        isDirectory: entry.isDirectory(),
-        size: stat.size,
-        modified: stat.mtime
-      };
+    const items = await fs.readdir(targetPath, { withFileTypes: true });
+    return Promise.all(items.map(async item => {
+      const isDir = item.isDirectory();
+      let size = 0;
+      if (!isDir) {
+        try { const st = await fs.stat(path.join(targetPath, item.name)); size = st.size; } catch(e){}
+      }
+      return { name: item.name, isDir, size };
     }));
-    return { path: dir, files };
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
 });
 
-fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
-  const shell = process.env.SHELL || 'bash';
-  const ptyProcess = pty.spawn(shell, [], {
+fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
+  // Simple token check for WS
+  const cookies = (req.headers.cookie || '').split(';');
+  const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
+  if (!tokenCookie) {
+    connection.socket.close();
+    return;
+  }
+  const token = tokenCookie.split('=')[1];
+  try {
+    fastify.jwt.verify(token);
+  } catch (e) {
+    connection.socket.close();
+    return;
+  }
+
+  const ptyProcess = pty.spawn('bash', [], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
-    cwd: process.env.HOME || '/',
+    cwd: process.env.HOME,
     env: process.env as Record<string, string>
   });
 
   ptyProcess.onData((data) => {
-    socket.send(JSON.stringify({ type: 'terminal.output', data }));
+    connection.socket.send(JSON.stringify({ type: 'terminal.output', data }));
   });
 
-  socket.on('message', (message) => {
+  connection.socket.on('message', (message) => {
     try {
       const msg = JSON.parse(message.toString());
       if (msg.type === 'terminal.input') {
@@ -69,51 +132,34 @@ fastify.get('/ws/terminal', { websocket: true }, (socket, req) => {
     } catch (e) {}
   });
 
-  socket.on('close', () => {
+  connection.socket.on('close', () => {
     ptyProcess.kill();
   });
 });
 
-fastify.get('/api/system', async (request, reply) => {
+fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const [cpu, mem, fsSize, network] = await Promise.all([
-      si.currentLoad(),
-      si.mem(),
-      si.fsSize(),
-      si.networkStats()
+    const [cpu, mem, fsSize, net] = await Promise.all([
+      si.cpu(), si.mem(), si.fsSize(), si.networkStats()
     ]);
     return {
-      cpu: {
-        currentLoad: cpu.currentLoad,
-        cores: cpu.cpus.map(c => c.load)
-      },
-      memory: {
-        total: mem.total,
-        used: mem.used,
-        active: mem.active,
-        swapTotal: mem.swaptotal,
-        swapUsed: mem.swapused
-      },
-      storage: fsSize.map(fs => ({
-        fs: fs.fs,
-        type: fs.type,
-        size: fs.size,
-        used: fs.used,
-        use: fs.use,
-        mount: fs.mount
-      })),
-      network: network.map(net => ({
-        iface: net.iface,
-        rx_sec: net.rx_sec,
-        tx_sec: net.tx_sec
-      }))
+      cpu: cpu.brand,
+      cores: cpu.cores,
+      ramTotal: mem.total,
+      ramUsed: mem.active,
+      swapTotal: mem.swaptotal,
+      swapUsed: mem.swapused,
+      diskTotal: fsSize[0]?.size || 0,
+      diskUsed: fsSize[0]?.used || 0,
+      netRx: net[0]?.rx_sec || 0,
+      netTx: net[0]?.tx_sec || 0
     };
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
 });
 
-fastify.get('/api/processes', async (request, reply) => {
+fastify.get('/api/processes', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const processes = await si.processes();
     return processes.list.map(p => ({
@@ -129,7 +175,7 @@ fastify.get('/api/processes', async (request, reply) => {
   }
 });
 
-fastify.get('/api/docker/containers', async (request, reply) => {
+fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const containers = await docker.listContainers({ all: true });
     return containers.map(c => ({
@@ -144,7 +190,7 @@ fastify.get('/api/docker/containers', async (request, reply) => {
   }
 });
 
-fastify.get('/api/services', async (request, reply) => {
+fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const { stdout } = await execAsync('systemctl list-units --type=service --all --no-pager --no-legend');
     const services = stdout.split('\n').filter(Boolean).map(line => {
@@ -160,7 +206,7 @@ fastify.get('/api/services', async (request, reply) => {
   }
 });
 
-fastify.get('/api/services/logs', async (request, reply) => {
+fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { name } = request.query as { name: string };
   if (!name) return reply.status(400).send({ error: 'Service name required' });
   try {
