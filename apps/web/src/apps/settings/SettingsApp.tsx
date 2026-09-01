@@ -212,9 +212,9 @@ export default function SettingsApp() {
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="font-medium text-gray-900">Wallpaper</div>
                   <select value={wallpaper} onChange={e => setWallpaper(e.target.value)} className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer">
-                    <option value="default">Ventura Graphic</option>
-                    <option value="monterey">Monterey</option>
-                    <option value="solid">Solid Color</option>
+                    <option value="nebu">NebuDesk Space (Default)</option>
+                    <option value="solid-black">Solid Black</option>
+                    <option value="solid-gray">Solid Gray</option>
                   </select>
                 </div>
               </div>

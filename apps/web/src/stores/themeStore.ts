@@ -8,13 +8,13 @@ interface ThemeState {
 
 export const useThemeStore = create<ThemeState>((set) => ({
   theme: 'light',
-  wallpaper: 'default',
+  wallpaper: 'nebu',
   fetchTheme: async () => {
     try {
       const res = await fetch(`http://${window.location.hostname}:3030/api/desktop`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        set({ theme: data.theme || 'light', wallpaper: data.wallpaper || 'default' });
+        set({ theme: data.theme || 'light', wallpaper: data.wallpaper || 'nebu' });
       }
     } catch (e) {}
   }

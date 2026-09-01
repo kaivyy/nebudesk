@@ -58,11 +58,15 @@ export default function Desktop() {
   }, []);
   
   return (
-    <div className={`w-full h-full flex flex-col relative overflow-hidden ${
-      wallpaper === 'solid-black' ? 'bg-black' : 
-      wallpaper === 'solid-gray' ? 'bg-gray-800' : 
-      'bg-gradient-to-br from-blue-900 to-black'
-    } ${theme === 'dark' ? 'dark' : ''}`}>
+    <div 
+      className={`w-full h-full flex flex-col relative overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
+      style={{ 
+        backgroundColor: wallpaper === 'solid-black' ? '#000000' : wallpaper === 'solid-gray' ? '#1f2937' : '#0f172a',
+        backgroundImage: (wallpaper === 'nebu' || wallpaper === 'default') ? 'url(/wallpaper.jpg)' : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
       {pickerProps && <FilePicker {...pickerProps} />}
       <MenuBar />
       <div className="flex-1 relative">
