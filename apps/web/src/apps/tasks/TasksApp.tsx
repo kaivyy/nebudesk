@@ -57,7 +57,7 @@ export default function TasksApp() {
   );
 
   return (
-    <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none">
+    <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none relative">
       <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[90px] shrink-0"></div> {/* Space for traffic lights */}
         <div className="flex items-center space-x-4">
@@ -104,21 +104,14 @@ export default function TasksApp() {
                 <td className="py-2 px-4 text-right text-gray-600">{p.cpu.toFixed(1)}</td>
                 <td className="py-2 px-4 text-right text-gray-600">{p.mem.toFixed(1)}</td>
                 <td className="py-2 px-4 text-center relative">
-                  {confirmKill === p.pid ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <button onClick={() => killProcess(p.pid)} className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded shadow-sm">Confirm</button>
-                      <button onClick={() => setConfirmKill(null)} className="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded shadow-sm">Cancel</button>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => setConfirmKill(p.pid)}
-                      className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all inline-flex items-center"
-                      title="Force Kill (SIGKILL)"
-                    >
-                      <AlertTriangle size={14} className="mr-1" />
-                      Kill
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => setConfirmKill(p.pid)}
+                    className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all inline-flex items-center"
+                    title="Force Kill (SIGKILL)"
+                  >
+                    <AlertTriangle size={14} className="mr-1" />
+                    Kill
+                  </button>
                 </td>
               </tr>
             ))}
@@ -130,6 +123,36 @@ export default function TasksApp() {
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmKill !== null && (
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 nebudesk-no-drag">
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-xs w-full animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center text-red-700">
+              <AlertTriangle className="mr-2" size={18} />
+              <span className="font-semibold text-sm">Force Quit Process</span>
+            </div>
+            <div className="p-4 text-sm text-gray-700 leading-relaxed">
+              Are you sure you want to force quit <strong>{processes.find(p => p.pid === confirmKill)?.name || 'this process'}</strong> (PID {confirmKill})?
+              <div className="mt-2 text-xs text-gray-500">Unsaved changes may be lost.</div>
+            </div>
+            <div className="px-4 py-3 bg-gray-50 flex justify-end space-x-2 border-t border-gray-100">
+              <button 
+                onClick={() => setConfirmKill(null)}
+                className="px-4 py-1.5 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => killProcess(confirmKill)}
+                className="px-4 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 font-medium shadow-sm transition-colors"
+              >
+                Force Quit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
