@@ -274,15 +274,34 @@ fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (req
 
 fastify.get('/api/processes', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const processes = await si.processes();
-    return processes.list.map(p => ({
-      pid: p.pid,
-      name: p.name,
-      cpu: p.cpu,
-      mem: p.mem,
-      user: p.user,
-      state: p.state
-    })).slice(0, 100);
+    const { exec } = await import('child_process');
+    const util = await import('util');
+    const execAsync = util.promisify(exec);
+    
+    const { stdout } = await execAsync('top -b -n 2 -d 0.1 -w 512');
+    const batches = stdout.split(/top - /).filter(Boolean);
+    const lastBatch = batches[batches.length - 1];
+    const lines = lastBatch.split('\n');
+    const start = lines.findIndex(l => l.trim().startsWith('PID'));
+    
+    if (start === -1) return [];
+
+    const data = lines.slice(start + 1).filter(l => l.trim()).map(l => {
+      const parts = l.trim().split(/\s+/);
+      if (parts.length >= 12) {
+        return {
+          pid: parseInt(parts[0]),
+          user: parts[1],
+          cpu: parseFloat(parts[8]),
+          mem: parseFloat(parts[9]),
+          state: parts[7],
+          name: parts.slice(11).join(' ')
+        };
+      }
+      return null;
+    }).filter(Boolean);
+    
+    return data.slice(0, 100);
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
