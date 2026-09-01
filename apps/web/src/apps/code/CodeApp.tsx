@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWindowStore } from '../../stores/windowStore';
 import Editor from '@monaco-editor/react';
 import { 
@@ -23,7 +23,22 @@ function FileTreeNode({
 }) {
   const isExpanded = expandedPaths.has(path);
   const [children, setChildren] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
+  const timerRef = useRef<any>(null);
+
+  const handleTouchStart = (e: any) => {
+    const touch = e.touches[0];
+    timerRef.current = setTimeout(() => {
+      if (onContextMenu) {
+        onContextMenu({ preventDefault: ()=>{}, stopPropagation: ()=>{}, clientX: touch.clientX, clientY: touch.clientY }, path, isDir);
+      }
+    }, 600);
+  };
+
+  const handleTouchEndOrMove = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
 
   useEffect(() => {
     if (isDir && isExpanded && children.length === 0) {
@@ -59,6 +74,9 @@ function FileTreeNode({
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => isDir ? toggleExpand(path) : onSelectFile(path)}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if(onContextMenu) onContextMenu(e, path, isDir); }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEndOrMove}
+        onTouchMove={handleTouchEndOrMove}
       >
         <div className="w-4 h-4 mr-1 flex items-center justify-center">
           {isDir ? (
