@@ -28,18 +28,25 @@ if ! command -v tailscale > /dev/null; then
 fi
 
 # 4. Configure UFW (Firewall) specifically for Tailscale & Web
-echo "[4/6] Configuring Military-Grade UFW Firewall..."
+echo "[4/6] Configuring UFW Firewall (Safely preserving SSH)..."
+# ALWAYS ALLOW SSH FIRST to prevent disconnection!
+ufw allow OpenSSH
+ufw allow 22/tcp
+
+# Set defaults
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 22/tcp          # Always keep SSH open to prevent lockout
+
+# Allow specific traffic
 ufw allow 80/tcp          # For public web/Caddy
 ufw allow 443/tcp         # For public web/Caddy
 ufw allow in on tailscale0 # Allow ALL traffic but ONLY from Tailscale VPN
+
+# Enable Firewall
 ufw --force enable
 
 # 5. Build and Deploy NebuDesk
 echo "[5/6] Building NebuDesk..."
-# Assume script is run from inside the nebudesk repository directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 # Backend
@@ -70,10 +77,8 @@ env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root || true
 echo "========================================="
 echo "✅ NebuDesk Installation Complete! ✅"
 echo "========================================="
-echo ""
 echo "Important Next Steps:"
-echo "1. Run 'sudo tailscale up' to connect this server to your Tailscale network."
-echo "2. Access NebuDesk securely via your Tailscale IP on port 8080."
-echo "   Example: http://100.x.x.x:8080"
-echo "3. Go to Discovery -> Adopt 'nebudesk-frontend' if you want a public domain."
+echo "1. Run 'sudo tailscale up' to connect this server."
+echo "2. Access securely via: http://100.x.x.x:8080"
+echo "3. Go to Discovery -> Adopt 'nebudesk-frontend' for a public domain."
 echo ""
