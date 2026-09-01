@@ -465,7 +465,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             </div>
             
             {/* VSCode Style Actions */}
-            <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 pr-1">
+            <div className="flex items-center space-x-1 pr-1">
               <button onClick={(e) => {
                 e.stopPropagation();
                 setPromptModal({ type: 'file', onSubmit: async (name: string) => {
