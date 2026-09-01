@@ -23,7 +23,7 @@ export default function Desktop() {
           <Window key={win.id} win={win}>
             {win.appId === 'files' && <FilesApp />}
             {win.appId === 'terminal' && <TerminalApp winId={win.id} />}
-            {win.appId === 'code' && <CodeApp initialPath={(win as any).path} />}
+            {win.appId === 'code' && <CodeApp initialPath={(win as any).path} winId={win.id} />}
             {win.appId === 'system' && <SystemApp />}
             {win.appId === 'docker' && <DockerApp />}
             {win.appId === 'services' && <ServicesApp />}

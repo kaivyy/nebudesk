@@ -109,10 +109,19 @@ function FileTreeNode({
   );
 }
 
-export default function CodeApp({ initialPath = '' }: { initialPath?: string }) {
-  const [workspace, setWorkspace] = useState('/root');
+export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?: string, winId?: string }) {
+  const getInitialWorkspace = () => {
+    if (!initialPath) return '/root';
+    const parts = initialPath.split('/');
+    if (parts.length > 1 && parts[parts.length - 1].includes('.')) {
+      return parts.slice(0, -1).join('/') || '/';
+    }
+    return initialPath;
+  };
+
+  const [workspace, setWorkspace] = useState(getInitialWorkspace());
   const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([]);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['/root']));
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([workspace]));
   
   // Editor State
   const [openFiles, setOpenFiles] = useState<{path: string, content: string, original: string, isDirty: boolean}[]>([]);
@@ -125,6 +134,22 @@ export default function CodeApp({ initialPath = '' }: { initialPath?: string }) 
   // New states for panels
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [gitStatus, setGitStatus] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail?.winId === winId) {
+        const p = prompt('Enter workspace path:', workspace);
+        if (p) {
+          setWorkspace(p);
+          setExpandedPaths(new Set([p]));
+          setOpenFiles([]);
+          setActiveFile(null);
+        }
+      }
+    };
+    document.addEventListener('nebucode:open-folder', handler);
+    return () => document.removeEventListener('nebucode:open-folder', handler);
+  }, [winId, workspace]);
 
   // Load root workspace
   const loadWorkspace = async () => {

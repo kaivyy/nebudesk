@@ -89,6 +89,16 @@ export default function MenuBar() {
               <button onClick={() => handleAction(() => openWindow({ appId: 'code', title: 'NebuCode', x: 120, y: 120, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
                 <span>New Code Editor</span><span className="text-gray-400 group-hover:text-white/70">⌘E</span>
               </button>
+              <button onClick={() => handleAction(() => {
+                if (focusedWindow?.appId === 'code') {
+                  document.dispatchEvent(new CustomEvent('nebucode:open-folder', { detail: { winId: focusedWindow.id } }));
+                } else {
+                  const p = prompt('Enter folder path to open:', '/root');
+                  if (p) openWindow({ appId: 'code', title: `Code - ${p}`, x: 130, y: 130, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
+                }
+              })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Open Folder...</span><span className="text-gray-400 group-hover:text-white/70">⌘O</span>
+              </button>
               <button onClick={() => handleAction(() => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
                 <span>New Terminal</span><span className="text-gray-400 group-hover:text-white/70">⌘T</span>
               </button>
