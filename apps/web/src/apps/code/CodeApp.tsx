@@ -3,7 +3,7 @@ import { useWindowStore } from '../../stores/windowStore';
 import Editor from '@monaco-editor/react';
 import { 
   Folder, File, ChevronRight, ChevronDown, FileCode2, FileJson, FileText,
-  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, Trash2, X, FilePlus, TerminalSquare, RefreshCw
+  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, X, FilePlus, TerminalSquare, RefreshCw
 } from 'lucide-react';
 
 interface FileEntry {
@@ -116,15 +116,7 @@ function FileTreeNode({
         </div>
         <span className="text-sm truncate flex-1 select-none">{name}</span>
         
-        {/* Actions (Delete) */}
-        <div className="pr-2 flex items-center">
-          <button 
-            onClick={(e) => onAction(e, 'delete', path)}
-            className="p-0.5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
+
       </div>
       
       {isDir && isExpanded && (
