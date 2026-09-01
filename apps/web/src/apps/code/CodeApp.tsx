@@ -30,14 +30,31 @@ function FileTreeNode({
     const touch = e.touches[0];
     timerRef.current = setTimeout(() => {
       if (onContextMenu) {
+        if (navigator.vibrate) navigator.vibrate(50);
         onContextMenu({ preventDefault: ()=>{}, stopPropagation: ()=>{}, clientX: touch.clientX, clientY: touch.clientY }, path, isDir);
+        timerRef.current = null;
       }
     }, 600);
   };
 
   const handleTouchEndOrMove = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   };
+
+  const handleTouchEnd = (e: any) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    } else {
+      // If timer is null, it means the timer ALREADY fired (long press happened).
+      // We must prevent the synthetic click from firing and hitting the backdrop!
+      e.preventDefault();
+    }
+  };
+
 
 
   useEffect(() => {
@@ -70,12 +87,12 @@ function FileTreeNode({
   return (
     <div>
       <div 
-        className="flex items-center py-1 hover:bg-[#2a2d2e] cursor-pointer text-gray-300 group"
+        className="flex items-center py-1 hover:bg-[#2a2d2e] cursor-pointer text-gray-300 group select-none [-webkit-touch-callout:none]"
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => isDir ? toggleExpand(path) : onSelectFile(path)}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if(onContextMenu) onContextMenu(e, path, isDir); }}
         onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEndOrMove}
+        onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchEndOrMove}
       >
         <div className="w-4 h-4 mr-1 flex items-center justify-center">
