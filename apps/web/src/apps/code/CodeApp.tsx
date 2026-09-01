@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import { 
   Folder, File, ChevronRight, ChevronDown, FileCode2, FileJson, FileText,
-  Search, GitBranch, Settings, LayoutPanelLeft, FilePlus, FolderPlus, Trash2, X
+  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, Trash2, X
 } from 'lucide-react';
 
 interface FileEntry {
@@ -122,6 +122,10 @@ export default function CodeApp({ initialPath = '' }: { initialPath?: string }) 
   const [status, setStatus] = useState('');
   const [activeActivity, setActiveActivity] = useState('explorer');
 
+  // New states for panels
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [gitStatus, setGitStatus] = useState<any>(null);
+
   // Load root workspace
   const loadWorkspace = async () => {
     try {
@@ -190,7 +194,7 @@ export default function CodeApp({ initialPath = '' }: { initialPath?: string }) 
 
   const closeFile = (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
-    const activeIdx = openFiles.findIndex(f => f.path === activeFile);
+    
     const closingIdx = openFiles.findIndex(f => f.path === path);
     
     setOpenFiles(prev => prev.filter(f => f.path !== path));
@@ -313,20 +317,30 @@ export default function CodeApp({ initialPath = '' }: { initialPath?: string }) 
         </button>
       </div>
 
-      {/* Sidebar (Explorer) */}
+      {/* Sidebar (Explorer/Search/Git) */}
       <div className="w-64 bg-[#252526] flex flex-col shrink-0 border-r border-[#1e1e1e]">
         <div className="h-9 px-4 flex items-center text-xs font-semibold tracking-wider text-gray-300">
-          EXPLORER
+          {activeActivity === 'explorer' && 'EXPLORER'}
+          {activeActivity === 'search' && 'SEARCH'}
+          {activeActivity === 'git' && 'SOURCE CONTROL'}
         </div>
-        <div className="flex-1 overflow-y-auto outline-none pb-4">
+        
+        {/* Explorer Panel */}
+        <div className={`flex-1 overflow-y-auto outline-none pb-4 ${activeActivity === 'explorer' ? 'block' : 'hidden'}`}>
           <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-pointer group">
-            <div className="flex items-center space-x-1 uppercase">
+            <div className="flex items-center space-x-1 uppercase" onClick={() => {
+              const p = prompt('Enter workspace path:', workspace);
+              if (p) setWorkspace(p);
+            }}>
               <ChevronDown size={14} />
               <span>{workspace.split('/').pop() || 'ROOT'}</span>
             </div>
             <div className="opacity-0 group-hover:opacity-100 flex space-x-1 pr-1">
-              <button title="New File" className="p-0.5 hover:bg-gray-600 rounded"><FilePlus size={14} /></button>
-              <button title="New Folder" className="p-0.5 hover:bg-gray-600 rounded"><FolderPlus size={14} /></button>
+              <button onClick={(e) => {
+                e.stopPropagation();
+                const p = prompt('Enter workspace path:', workspace);
+                if (p) setWorkspace(p);
+              }} title="Open Folder" className="p-0.5 hover:bg-gray-600 rounded"><FolderPlus size={14} /></button>
             </div>
           </div>
           
@@ -344,6 +358,77 @@ export default function CodeApp({ initialPath = '' }: { initialPath?: string }) 
                 onAction={handleAction}
               />
             ))}
+          </div>
+        </div>
+
+        {/* Search Panel */}
+        <div className={`flex-1 flex flex-col p-4 ${activeActivity === 'search' ? 'block' : 'hidden'}`}>
+          <input 
+            type="text" 
+            placeholder="Search files (min 2 chars)..."
+            className="w-full bg-[#3c3c3c] text-white px-2 py-1 text-sm border border-[#3c3c3c] focus:border-blue-500 outline-none mb-2"
+            onKeyDown={async (e) => {
+              if (e.key === 'Enter') {
+                const q = (e.target as HTMLInputElement).value;
+                if (q.length < 2) return;
+                setStatus('Searching...');
+                try {
+                  const baseUrl = `http://${window.location.hostname}:3001`;
+                  const res = await fetch(`${baseUrl}/api/files/search?p=${encodeURIComponent(workspace)}&q=${encodeURIComponent(q)}`, { credentials: 'include' });
+                  const data = await res.json();
+                  setSearchResults(data.results);
+                  setStatus(`Found ${data.results.length} results`);
+                } catch(e) {}
+              }
+            }}
+          />
+          <div className="text-xs text-gray-400 mt-2">
+            {searchResults?.length > 0 ? (
+              <div className="space-y-1">
+                {searchResults.map((r: string) => (
+                  <div key={r} className="cursor-pointer hover:bg-[#2a2d2e] py-1 px-1 truncate" onClick={() => openFile(r)}>{r}</div>
+                ))}
+              </div>
+            ) : "No results or search not started."}
+          </div>
+        </div>
+
+        {/* Git Panel */}
+        <div className={`flex-1 flex flex-col p-4 ${activeActivity === 'git' ? 'block' : 'hidden'}`}>
+          <button 
+            className="w-full py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded mb-4"
+            onClick={async () => {
+              setStatus('Checking Git status...');
+              try {
+                const baseUrl = `http://${window.location.hostname}:3001`;
+                const res = await fetch(`${baseUrl}/api/git/status?p=${encodeURIComponent(workspace)}`, { credentials: 'include' });
+                const data = await res.json();
+                if (data.notRepo) {
+                  setStatus('Not a git repository');
+                  setGitStatus(null);
+                } else {
+                  setGitStatus(data);
+                  setStatus(`Git branch: ${data.branch}`);
+                }
+              } catch(e) {}
+            }}
+          >
+            Refresh Git Status
+          </button>
+          <div className="text-xs text-gray-300">
+            {gitStatus ? (
+              <div>
+                <div className="font-bold mb-2">Branch: {gitStatus.branch}</div>
+                <div className="space-y-1">
+                  {gitStatus.files.map((f: any) => (
+                    <div key={f.file} className="flex justify-between hover:bg-[#2a2d2e] py-1 px-1 cursor-pointer" onClick={() => openFile(workspace + '/' + f.file)}>
+                      <span className="truncate flex-1" title={f.file}>{f.file}</span>
+                      <span className={`w-4 text-center font-bold ${f.status.includes('M') ? 'text-yellow-400' : 'text-green-400'}`}>{f.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : "Click refresh to load status"}
           </div>
         </div>
       </div>

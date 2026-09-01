@@ -5,13 +5,15 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import fs from 'fs/promises';
 import path from 'path';
-import pty from 'node-pty';
+import * as pty from 'node-pty';
 import si from 'systeminformation';
 import Docker from 'dockerode';
 import { exec } from 'child_process';
 import util from 'util';
 import bcrypt from 'bcrypt';
 import { initDb, dbGet, dbRun } from './db';
+
+import registerExtensions from './api_extensions';
 
 const execAsync = util.promisify(exec);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -308,9 +310,12 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
   }
 });
 
+registerExtensions(fastify, ALLOWED_ROOT);
+
 fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
   if (err) {
-    fastify.log.error(err);
+    console.error(err);
     process.exit(1);
   }
+  console.log(`Backend listening at ${address}`);
 });
