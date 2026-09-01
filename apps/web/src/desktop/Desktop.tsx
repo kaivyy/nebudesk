@@ -69,7 +69,7 @@ export default function Desktop() {
       <div className="flex-1 relative">
         {windows.map(win => (
           <Window key={win.id} win={win}>
-            {win.appId === 'files' && <FilesApp />}
+            {win.appId === 'files' && <FilesApp initialPath={(win as any).path} />}
             {win.appId === 'terminal' && <TerminalApp winId={win.id} />}
             {win.appId === 'code' && <CodeApp initialPath={(win as any).path} winId={win.id} />}
             {win.appId === 'system' && <SystemApp />}

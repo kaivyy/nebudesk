@@ -66,9 +66,9 @@ const FolderIcon = ({ children }: { children?: React.ReactNode }) => (
   </div>
 );
 
-export default function FilesApp() {
-  const [currentPath, setCurrentPath] = useState('/root');
-  const [history, setHistory] = useState(['/root']);
+export default function FilesApp({ initialPath = '/root' }: { initialPath?: string }) {
+  const [currentPath, setCurrentPath] = useState(initialPath);
+  const [history, setHistory] = useState([initialPath || '/root']);
   const [historyIdx, setHistoryIdx] = useState(0);
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [error, setError] = useState('');
