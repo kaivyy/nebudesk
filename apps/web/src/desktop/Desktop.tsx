@@ -4,6 +4,7 @@ import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
 import TerminalApp from '../apps/terminal/TerminalApp';
 import SystemApp from '../apps/system/SystemApp';
+import DockerApp from '../apps/docker/DockerApp';
 
 export default function Desktop() {
   const windows = useWindowStore(state => state.windows);
@@ -25,6 +26,7 @@ export default function Desktop() {
               {win.appId === 'files' && <FilesApp />}
               {win.appId === 'terminal' && <TerminalApp />}
               {win.appId === 'system' && <SystemApp />}
+              {win.appId === 'docker' && <DockerApp />}
             </div>
           </div>
         ))}

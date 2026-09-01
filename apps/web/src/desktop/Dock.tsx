@@ -25,6 +25,13 @@ export default function Dock() {
         className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
         📊
       </button>
+      <button 
+        onClick={() => openWindow({
+          appId: 'docker', title: 'Docker Manager', x: 250, y: 150, width: 700, height: 400, minWidth: 500, minHeight: 300, minimized: false, maximized: false
+        })}
+        className="w-12 h-12 bg-blue-700 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
+        🐳
+      </button>
     </div>
   );
 }
