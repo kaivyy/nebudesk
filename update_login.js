@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+const fs = require('fs');
+
+const code = `import { useState, useEffect } from 'react';
 import { User, ArrowRight, Wifi, Power, Keyboard, Loader2 } from 'lucide-react';
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
@@ -21,7 +23,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`http://${window.location.hostname}:3030/api/auth/login`, {
+      const res = await fetch(\`http://\${window.location.hostname}:3030/api/auth/login\`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -118,7 +120,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
            </div>
 
            {/* Error Message */}
-           <div className={`text-center text-red-200 text-sm font-medium transition-all duration-300 h-6 ${error ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}>
+           <div className={\`text-center text-red-200 text-sm font-medium transition-all duration-300 h-6 \${error ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}\`}>
              {error}
            </div>
          </form>
@@ -147,3 +149,6 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('apps/web/src/Login.tsx', code);
