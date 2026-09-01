@@ -1,85 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Monitor, Network, Palette, User } from 'lucide-react';
+const fs = require('fs');
+let code = fs.readFileSync('apps/web/src/apps/settings/SettingsApp.tsx', 'utf8');
 
-function formatBytes(bytes: number, decimals = 2) {
-  if (!+bytes) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
+const returnIdx = code.indexOf('return (');
+if (returnIdx === -1) { console.error('Not found'); process.exit(1); }
 
-export default function SettingsApp() {
-  const [activeTab, setActiveTab] = useState('general');
-  const [sysInfo, setSysInfo] = useState<any>(null);
-  const [error, setError] = useState('');
-  
-  const [theme, setTheme] = useState('system');
-  const [wallpaper, setWallpaper] = useState('default');
-    const [username, setUsername] = useState('admin');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [authStatus, setAuthStatus] = useState('');
+const beforeReturn = code.substring(0, returnIdx);
 
-  // Fetch OS details
-  useEffect(() => {
-    const fetchInfo = async () => {
-      try {
-        const baseUrl = `http://${window.location.hostname}:3030`;
-        const res = await fetch(`${baseUrl}/api/system`, { credentials: 'include' });
-        if (res.ok) setSysInfo(await res.json());
-      } catch (err: any) {
-        setError(err.message);
-      }
-    };
-    fetchInfo();
-  }, []);
-
-  // Fetch Desktop preferences
-  useEffect(() => {
-    const fetchPrefs = async () => {
-      try {
-        const baseUrl = `http://${window.location.hostname}:3030`;
-        const res = await fetch(`${baseUrl}/api/desktop`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.theme) setTheme(data.theme);
-          if (data.wallpaper) setWallpaper(data.wallpaper);
-        }
-      } catch (err: any) {}
-    };
-    fetchPrefs();
-  }, []);
-
-  
-  const handleAuthSave = async () => {
-    try {
-      setAuthStatus('Saving...');
-      const baseUrl = `http://${window.location.hostname}:3030`;
-      const res = await fetch(`${baseUrl}/api/auth/profile`, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, currentPassword, newPassword })
-      });
-      if (res.ok) {
-        setAuthStatus('Profile updated successfully.');
-        setCurrentPassword('');
-        setNewPassword('');
-        setTimeout(() => setAuthStatus(''), 3000);
-      } else {
-        const err = await res.json();
-        setAuthStatus('Error: ' + err.error);
-      }
-    } catch (e) {
-      setAuthStatus('Failed to update.');
-    }
-  };
-
-  
-  
-  return (
+const newReturn = `return (
     <div className="h-full flex flex-row bg-white font-sans text-[13px] text-gray-800 select-none">
       
       {/* Sidebar & Window Chrome */}
@@ -100,9 +27,9 @@ export default function SettingsApp() {
         <div className="flex-1 overflow-y-auto px-2 space-y-[2px] nebudesk-no-drag pb-4">
           <button 
             onClick={() => setActiveTab('general')}
-            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-colors ${activeTab === 'general' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}`}
+            className={\`w-full flex items-center px-2 py-1.5 rounded-md transition-colors \${activeTab === 'general' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}\`}
           >
-            <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm ${activeTab === 'general' ? 'bg-white/20' : 'bg-gray-400'}`}>
+            <div className={\`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm \${activeTab === 'general' ? 'bg-white/20' : 'bg-gray-400'}\`}>
               <SettingsIcon size={14} className="text-white" />
             </div>
             <span className="font-medium">General</span>
@@ -110,9 +37,9 @@ export default function SettingsApp() {
 
           <button 
             onClick={() => setActiveTab('appearance')}
-            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-colors ${activeTab === 'appearance' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}`}
+            className={\`w-full flex items-center px-2 py-1.5 rounded-md transition-colors \${activeTab === 'appearance' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}\`}
           >
-            <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm ${activeTab === 'appearance' ? 'bg-white/20' : 'bg-gradient-to-br from-indigo-500 to-purple-500'}`}>
+            <div className={\`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm \${activeTab === 'appearance' ? 'bg-white/20' : 'bg-gradient-to-br from-indigo-500 to-purple-500'}\`}>
               <Palette size={14} className="text-white" />
             </div>
             <span className="font-medium">Appearance</span>
@@ -120,9 +47,9 @@ export default function SettingsApp() {
 
           <button 
             onClick={() => setActiveTab('network')}
-            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-colors ${activeTab === 'network' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}`}
+            className={\`w-full flex items-center px-2 py-1.5 rounded-md transition-colors \${activeTab === 'network' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}\`}
           >
-            <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm ${activeTab === 'network' ? 'bg-white/20' : 'bg-blue-500'}`}>
+            <div className={\`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm \${activeTab === 'network' ? 'bg-white/20' : 'bg-blue-500'}\`}>
               <Network size={14} className="text-white" />
             </div>
             <span className="font-medium">Network</span>
@@ -130,9 +57,9 @@ export default function SettingsApp() {
           
           <button 
             onClick={() => setActiveTab('account')}
-            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-colors ${activeTab === 'account' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}`}
+            className={\`w-full flex items-center px-2 py-1.5 rounded-md transition-colors \${activeTab === 'account' ? 'bg-[#0061e0] text-white' : 'hover:bg-gray-200 text-gray-900'}\`}
           >
-            <div className={`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm ${activeTab === 'account' ? 'bg-white/20' : 'bg-gray-500'}`}>
+            <div className={\`w-6 h-6 rounded flex items-center justify-center mr-2 shadow-sm \${activeTab === 'account' ? 'bg-white/20' : 'bg-gray-500'}\`}>
               <User size={14} className="text-white" />
             </div>
             <span className="font-medium">Account</span>
@@ -195,7 +122,7 @@ export default function SettingsApp() {
                       <span className="text-gray-500 font-medium">{formatBytes(disk.use, 1)} / {formatBytes(disk.size, 1)}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-[#0061e0] h-2.5 rounded-full" style={{ width: `${disk.use / disk.size * 100}%` }}></div>
+                      <div className="bg-[#0061e0] h-2.5 rounded-full" style={{ width: \`\${disk.use / disk.size * 100}%\` }}></div>
                     </div>
                   </div>
                 ))}
@@ -258,7 +185,7 @@ export default function SettingsApp() {
 
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden p-5">
                 <h3 className="font-semibold text-gray-900 text-sm mb-4">Change Credentials</h3>
-                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleAuthSave(); }}>
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }}>
                   <div className="flex items-center">
                     <label className="w-32 text-gray-500 font-medium text-[13px]">Username</label>
                     <input 
@@ -288,7 +215,7 @@ export default function SettingsApp() {
                     />
                   </div>
                   <div className="pt-2 flex items-center justify-between">
-                    <span className={`text-xs ${authStatus.includes('success') ? 'text-green-600' : 'text-red-500'}`}>{authStatus}</span>
+                    <span className={\`text-xs \${authStatus.includes('success') ? 'text-green-600' : 'text-red-500'}\`}>{authStatus}</span>
                     <button type="submit" className="bg-[#0061e0] hover:bg-blue-600 text-white px-4 py-1.5 rounded-md font-medium transition-colors shadow-sm text-[13px]">
                       Change Password...
                     </button>
@@ -303,3 +230,6 @@ export default function SettingsApp() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('apps/web/src/apps/settings/SettingsApp.tsx', beforeReturn + newReturn);
