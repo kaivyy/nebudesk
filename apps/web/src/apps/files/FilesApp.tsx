@@ -216,13 +216,35 @@ export default function FilesApp() {
   );
 
   return (
-    <div className="h-full flex flex-col bg-white text-gray-800 font-sans select-none" ref={containerRef}>
+    <div className="h-full flex flex-row bg-white text-gray-800 font-sans select-none" ref={containerRef}>
       
+          {/* Left Unified Sidebar & Chrome */}
+    <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-gray-200 nebudesk-drag-region h-full relative z-10">
+      {/* Traffic Light Spacer (Window.tsx absolute lights sit here) */}
+      <div className="h-14 shrink-0 pointer-events-none border-b border-transparent"></div>
+      
+      <div className="flex-1 overflow-y-auto py-2 space-y-1 nebudesk-no-drag">
+
+            <div className="mt-2 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
+            <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
+            <SidebarItem icon={Monitor} label="NebuDesk" path="/root/nebudesk" isActive={currentPath === '/root/nebudesk'} />
+            
+            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sistem</div>
+            <SidebarItem icon={HardDrive} label="System Root" path="/" isActive={currentPath === '/'} />
+            <SidebarItem icon={FolderOpen} label="Konfigurasi" path="/etc" isActive={currentPath === '/etc'} />
+            <SidebarItem icon={Clock} label="Server Logs" path="/var/log" isActive={currentPath === '/var/log'} />
+          
+      </div>
+    </div>
+
+
+    {/* Right Main Area */}
+    <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
       {/* Toolbar */}
       <div className="h-14 flex items-center px-4 justify-between border-b border-gray-200 bg-white shrink-0 nebudesk-drag-region touch-none">
         {/* Left Nav & Title */}
         <div className="flex items-center gap-4 shrink-0">
-          <div className="w-[70px] shrink-0"></div> {/* Spacer for traffic lights */}
+          
           <div className="flex gap-1 text-gray-500 nebudesk-no-drag">
             <button onClick={goBack} disabled={historyIdx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={20} /></button>
             <button onClick={goForward} disabled={historyIdx >= history.length - 1} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronRight size={20} /></button>
@@ -261,24 +283,9 @@ export default function FilesApp() {
 
       {error && <div className="px-4 py-2 text-red-500 bg-red-50 text-xs border-b border-red-100">{error}</div>}
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Sidebar */}
-        <div className="w-52 bg-[#f3f3f3] bg-opacity-90 flex-shrink-0 flex flex-col border-r border-gray-200">
-          <div className="flex-1 overflow-y-auto py-2 space-y-1">
-            <div className="mt-2 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
-            <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
-            <SidebarItem icon={Monitor} label="NebuDesk" path="/root/nebudesk" isActive={currentPath === '/root/nebudesk'} />
-            
-            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sistem</div>
-            <SidebarItem icon={HardDrive} label="System Root" path="/" isActive={currentPath === '/'} />
-            <SidebarItem icon={FolderOpen} label="Konfigurasi" path="/etc" isActive={currentPath === '/etc'} />
-            <SidebarItem icon={Clock} label="Server Logs" path="/var/log" isActive={currentPath === '/var/log'} />
-          </div>
-        </div>
-
-        {/* File List/Grid */}
+      
+      {error && <div className="px-4 py-2 text-red-500 bg-red-50 text-xs border-b border-red-100">{error}</div>}
+      {/* File List/Grid */}
         <div className="flex-1 overflow-auto p-4 bg-white relative" onClick={() => setRenaming(null)}>
           {filteredFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
@@ -386,8 +393,7 @@ export default function FilesApp() {
           )}
         </div>
       </div>
-
-            {/* Prompt Modal */}
+{/* Prompt Modal */}
       {promptModal && (
         <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-40 backdrop-blur-[1px]" onClick={() => setPromptModal(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-72 overflow-hidden border border-gray-200" onClick={e => e.stopPropagation()}>
