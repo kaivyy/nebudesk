@@ -24,6 +24,7 @@ export interface WindowState {
   focusWindow: (id: string) => void;
   bringToFront: (id: string) => void;
   updatePosition: (id: string, x: number, y: number) => void;
+  updateSize: (id: string, width: number, height: number, x?: number, y?: number) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
 }
@@ -67,6 +68,9 @@ export const useWindowStore = create<WindowState>((set) => ({
       windows: state.windows.map(w => w.id === id ? { ...w, zIndex: newZ, focused: true } : { ...w, focused: false })
     };
   }),
+  updateSize: (id, width, height, x, y) => set((state) => ({
+    windows: state.windows.map(w => w.id === id ? { ...w, width, height, x: x !== undefined ? x : w.x, y: y !== undefined ? y : w.y } : w)
+  })),
   updatePosition: (id, x, y) => set((state) => ({
     windows: state.windows.map(w => w.id === id ? { ...w, x, y } : w)
   })),

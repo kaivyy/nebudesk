@@ -1,4 +1,5 @@
-import { useState } from 'react';
+const fs = require('fs');
+const newCode = `import { useState } from 'react';
 import { useWindowStore } from '../stores/windowStore';
 import type { DesktopWindow } from '../stores/windowStore';
 
@@ -159,3 +160,7 @@ export default function Window({ win, children }: WindowProps) {
     </div>
   );
 }
+`;
+
+fs.writeFileSync('apps/web/src/desktop/Window.tsx', newCode);
+console.log('patched Window.tsx');
