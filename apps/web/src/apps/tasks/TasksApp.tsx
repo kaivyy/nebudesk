@@ -141,7 +141,7 @@ export default function TasksApp() {
                   <td className="py-2 px-4 text-center relative">
                     <button 
                       onClick={() => setConfirmKill(p.pid)}
-                      className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all inline-flex items-center"
+                      className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all inline-flex items-center"
                       title="Force Kill (SIGKILL)"
                     >
                       <AlertTriangle size={14} className="mr-1" />
