@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useWindowStore } from '../../stores/windowStore';
 import Editor from '@monaco-editor/react';
 import { 
   Folder, File, ChevronRight, ChevronDown, FileCode2, FileJson, FileText,
@@ -12,11 +13,12 @@ interface FileEntry {
 }
 
 function FileTreeNode({ 
-  name, path, isDir, level, onSelectFile, expandedPaths, toggleExpand, onAction
+  name, path, isDir, level, onSelectFile, expandedPaths, toggleExpand, onAction, onContextMenu
 }: { 
   name: string, path: string, isDir: boolean, level: number, 
   onSelectFile: (p: string) => void, 
   expandedPaths: Set<string>, toggleExpand: (p: string) => void,
+  onContextMenu?: (e: any, path: string, isDir: boolean) => void,
   onAction: (e: any, action: string, path: string) => void
 }) {
   const isExpanded = expandedPaths.has(path);
@@ -56,6 +58,7 @@ function FileTreeNode({
         className="flex items-center py-1 hover:bg-[#2a2d2e] cursor-pointer text-gray-300 group"
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => isDir ? toggleExpand(path) : onSelectFile(path)}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if(onContextMenu) onContextMenu(e, path, isDir); }}
       >
         <div className="w-4 h-4 mr-1 flex items-center justify-center">
           {isDir ? (
@@ -100,6 +103,7 @@ function FileTreeNode({
                 expandedPaths={expandedPaths}
                 toggleExpand={toggleExpand}
                 onAction={onAction}
+                onContextMenu={onContextMenu}
               />
             ))
           )}
@@ -110,6 +114,27 @@ function FileTreeNode({
 }
 
 export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?: string, winId?: string }) {
+  const store = useWindowStore();
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string, isDir: boolean } | null>(null);
+
+  const handleOpenNewWindow = () => {
+    if (!contextMenu) return;
+    store.openWindow({
+      appId: 'code',
+      title: 'NebuCode',
+      x: 100 + Math.random() * 50,
+      y: 100 + Math.random() * 50,
+      width: 900,
+      height: 600,
+      minWidth: 400,
+      minHeight: 300,
+      minimized: false,
+      maximized: false,
+      path: contextMenu.path
+    } as any);
+    setContextMenu(null);
+  };
+
   const getInitialWorkspace = () => {
     if (!initialPath) return '/root';
     const parts = initialPath.split('/');
@@ -584,6 +609,34 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       </div>
     </div>
     </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => {e.preventDefault(); setContextMenu(null);}}></div>
+          <div 
+            className="fixed z-50 bg-[#2d2d2d] border border-[#3e3e42] shadow-xl rounded py-1 min-w-[200px] text-[13px] text-[#cccccc]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button 
+              onClick={handleOpenNewWindow}
+              className="w-full text-left px-4 py-1.5 hover:bg-[#094771] hover:text-white transition-colors"
+            >
+              Open in New Window
+            </button>
+            <div className="border-t border-[#3e3e42] my-1"></div>
+            <button 
+              onClick={(e) => {
+                 handleAction(e, 'delete', contextMenu.path);
+                 setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-1.5 hover:bg-red-500 hover:text-white transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
