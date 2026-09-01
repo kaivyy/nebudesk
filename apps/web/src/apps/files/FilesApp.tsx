@@ -199,8 +199,8 @@ export default function FilesApp() {
                 {filteredFiles.map(file => (
                   <tr 
                     key={file.name} 
-                    onDoubleClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
-                    className="border-b border-gray-50 hover:bg-blue-50/50 group cursor-default transition-colors"
+                    onClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
+                    className="border-b border-gray-50 hover:bg-blue-50/50 group cursor-pointer transition-colors"
                   >
                     <td className="py-2 flex items-center space-x-3">
                       {file.isDir ? (
@@ -233,8 +233,8 @@ export default function FilesApp() {
               {filteredFiles.map(file => (
                 <div 
                   key={file.name}
-                  onDoubleClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-blue-50 group cursor-default text-center transition-colors relative"
+                  onClick={() => file.isDir && setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`)}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-blue-50 group cursor-pointer text-center transition-colors relative"
                 >
                   {file.isDir ? (
                     <Folder className="text-blue-400 fill-blue-400/20 mb-2" size={48} strokeWidth={1.5} />
