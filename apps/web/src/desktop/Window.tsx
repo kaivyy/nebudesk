@@ -25,7 +25,7 @@ export default function Window({ win, children }: WindowProps) {
         x: e.clientX - win.x,
         y: e.clientY - win.y
       });
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
     }
   };
 
@@ -38,7 +38,9 @@ export default function Window({ win, children }: WindowProps) {
   const handlePointerUp = (e: React.PointerEvent) => {
     if (isDragging) {
       setIsDragging(false);
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch (err) {}
     }
   };
 

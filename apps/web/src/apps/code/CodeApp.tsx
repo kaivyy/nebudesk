@@ -330,7 +330,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   return (
     <div className="h-full flex flex-col bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden" onKeyDown={handleKeyDown}>
       {/* Native-like Titlebar */}
-      <div className="h-14 bg-[#333333] border-b border-[#252526] flex items-center shrink-0 nebudesk-drag-region">
+      <div className="h-14 bg-[#333333] border-b border-[#252526] flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[70px] shrink-0"></div> {/* Space for absolute traffic lights */}
         
         {/* Mock Search / Command Palette in Titlebar */}

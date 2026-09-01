@@ -58,7 +58,7 @@ export default function TasksApp() {
 
   return (
     <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none">
-      <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region">
+      <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[60px] shrink-0"></div> {/* Space for traffic lights */}
         <div className="flex items-center space-x-4 nebudesk-no-drag">
           <h2 className="font-semibold text-gray-700">Task Manager</h2>

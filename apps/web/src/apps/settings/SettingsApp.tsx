@@ -18,7 +18,7 @@ export default function SettingsApp() {
   return (
     <div className="h-full flex flex-col bg-[#f5f5f7] text-gray-800 text-sm font-sans select-none">
       {/* Unified Settings Titlebar */}
-      <div className="h-14 bg-white border-b border-gray-200 flex items-center shrink-0 nebudesk-drag-region">
+      <div className="h-14 bg-white border-b border-gray-200 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[70px] shrink-0"></div>
         <div className="font-semibold text-gray-700 text-sm">Settings</div>
       </div>

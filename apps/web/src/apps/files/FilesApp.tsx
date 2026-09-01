@@ -125,7 +125,7 @@ export default function FilesApp() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Unified macOS Toolbar */}
-        <div className="h-14 bg-gradient-to-b from-gray-50 to-gray-100/80 backdrop-blur-xl border-b border-gray-200/50 flex items-center px-4 shrink-0 nebudesk-drag-region">
+        <div className="h-14 bg-gradient-to-b from-gray-50 to-gray-100/80 backdrop-blur-xl border-b border-gray-200/50 flex items-center px-4 shrink-0 nebudesk-drag-region select-none touch-none">
           
           {/* Left spacer for absolute traffic lights in Window.tsx */}
           <div className="w-[60px] shrink-0"></div>
