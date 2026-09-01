@@ -243,6 +243,17 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
   });
 });
 
+fastify.delete('/api/terminal/:termId', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  try {
+    const { termId } = request.params as { termId: string };
+    const sessionName = `nebudesk_term_${termId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    exec(`tmux kill-session -t ${sessionName}`, () => {});
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const [cpu, mem, fsSize, net, load, osInfo] = await Promise.all([
