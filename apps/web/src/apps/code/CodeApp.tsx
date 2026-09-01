@@ -525,7 +525,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           <LayoutPanelLeft size={24} strokeWidth={1.5} />
         </button>
         <button 
-          onClick={() => setActiveActivity('search')}
+          onClick={() => setActiveActivity(prev => prev === 'search' ? null : 'search')}
           className={`p-2 rounded-md ${activeActivity === 'search' ? 'text-white border-l-2 border-white' : 'text-gray-400 hover:text-gray-200'}`}
           title="Search"
         >
