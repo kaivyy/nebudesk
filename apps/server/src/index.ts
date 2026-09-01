@@ -220,13 +220,16 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
 
 fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const [cpu, mem, fsSize, net, load] = await Promise.all([
-      si.cpu(), si.mem(), si.fsSize(), si.networkStats(), si.currentLoad()
+    const [cpu, mem, fsSize, net, load, osInfo] = await Promise.all([
+      si.cpu(), si.mem(), si.fsSize(), si.networkInterfaces(), si.currentLoad(), si.osInfo()
     ]);
     return {
       cpu: { currentLoad: load.currentLoad, cores: load.cpus.map(c => c.load) },
       memory: { active: mem.active, total: mem.total },
-      storage: fsSize.map(fs => ({ mount: fs.mount, type: fs.type, use: fs.use, used: fs.used, size: fs.size }))
+      storage: fsSize.map(fs => ({ mount: fs.mount, type: fs.type, use: fs.use, used: fs.used, size: fs.size })),
+      os: { platform: osInfo.platform, distro: osInfo.distro, release: osInfo.release, kernel: osInfo.kernel, arch: osInfo.arch, hostname: osInfo.hostname },
+      cpuInfo: { brand: cpu.brand, cores: cpu.cores, physicalCores: cpu.physicalCores, speed: cpu.speed },
+      network: (Array.isArray(net) ? net : [net]).map(n => ({ iface: n.iface, ip4: n.ip4, ip6: n.ip6, mac: n.mac }))
     };
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });

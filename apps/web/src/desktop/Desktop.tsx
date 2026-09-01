@@ -13,8 +13,11 @@ import TasksApp from '../apps/tasks/TasksApp';
 import ImageApp from '../apps/image/ImageApp';
 import FolderPicker from './FolderPicker';
 import Window from './Window';
+import { useThemeStore } from '../stores/themeStore';
 
 export default function Desktop() {
+  const { wallpaper, theme, fetchTheme } = useThemeStore();
+  useEffect(() => { fetchTheme(); }, []);
   const windows = useWindowStore(state => state.windows);
   
   // Folder Picker State
@@ -38,7 +41,11 @@ export default function Desktop() {
   }, []);
   
   return (
-    <div className="w-full h-full bg-gradient-to-br from-blue-900 to-black flex flex-col relative overflow-hidden">
+    <div className={`w-full h-full flex flex-col relative overflow-hidden ${
+      wallpaper === 'solid-black' ? 'bg-black' : 
+      wallpaper === 'solid-gray' ? 'bg-gray-800' : 
+      'bg-gradient-to-br from-blue-900 to-black'
+    } ${theme === 'dark' ? 'dark' : ''}`}>
       {pickerProps && <FolderPicker {...pickerProps} />}
       <MenuBar />
       <div className="flex-1 relative">
