@@ -14,8 +14,17 @@ export default function SettingsApp() {
     setTimeout(() => setStatus(''), 2000);
   };
 
+
   return (
-    <div className="h-full flex bg-[#f5f5f7] text-gray-800 text-sm font-sans select-none">
+    <div className="h-full flex flex-col bg-[#f5f5f7] text-gray-800 text-sm font-sans select-none">
+      {/* Unified Settings Titlebar */}
+      <div className="h-14 bg-white border-b border-gray-200 flex items-center shrink-0 nebudesk-drag-region">
+        <div className="w-[70px] shrink-0"></div>
+        <div className="font-semibold text-gray-700 text-sm">Settings</div>
+      </div>
+      
+      <div className="flex-1 flex overflow-hidden">
+
       {/* Sidebar */}
       <div className="w-48 bg-white border-r border-gray-200 flex flex-col py-4">
         <div className="px-4 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -83,6 +92,7 @@ export default function SettingsApp() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

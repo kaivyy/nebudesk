@@ -55,5 +55,16 @@ export default function TerminalApp({ winId }: { winId: string }) {
     };
   }, []);
 
-  return <div ref={terminalRef} className="w-full h-full bg-[#1e1e1e] p-1" />;
+  return (
+    <div className="h-full flex flex-col bg-[#1e1e1e] overflow-hidden">
+      {/* macOS Terminal Titlebar */}
+      <div className="h-14 flex items-center justify-center shrink-0 nebudesk-drag-region bg-[#1e1e1e] border-b border-[#333]">
+        <span className="text-gray-400 text-xs font-semibold select-none">Terminal</span>
+      </div>
+      
+      <div className="flex-1 p-2 nebudesk-no-drag">
+        <div ref={terminalRef} className="w-full h-full" />
+      </div>
+    </div>
+  );
 }

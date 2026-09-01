@@ -93,14 +93,6 @@ export default function Window({ win, children }: WindowProps) {
       </div>
 
       <div className="flex-1 overflow-hidden relative text-black flex flex-col">
-        {/* Fallback default header for apps that don't have their own toolbar yet */}
-        {win.appId !== 'files' && win.appId !== 'code' && (
-          <div className="h-14 border-b flex items-center px-4 select-none touch-none bg-gradient-to-b from-gray-100/50 to-white/50 nebudesk-drag-region shrink-0">
-            <div className="w-20"></div> {/* Space for traffic lights */}
-            <div className="flex-1 font-semibold text-gray-700 text-sm">{win.title}</div>
-          </div>
-        )}
-        
         {children}
       </div>
     </div>

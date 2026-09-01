@@ -328,9 +328,27 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   };
 
   return (
-    <div className="h-full flex bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden" onKeyDown={handleKeyDown}>
-      {/* Activity Bar */}
-      <div className="w-12 bg-[#333333] flex flex-col items-center py-2 space-y-4 shrink-0 border-r border-[#252526]">
+    <div className="h-full flex flex-col bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden" onKeyDown={handleKeyDown}>
+      {/* Native-like Titlebar */}
+      <div className="h-14 bg-[#333333] border-b border-[#252526] flex items-center shrink-0 nebudesk-drag-region">
+        <div className="w-[70px] shrink-0"></div> {/* Space for absolute traffic lights */}
+        
+        {/* Mock Search / Command Palette in Titlebar */}
+        <div className="flex-1 flex justify-center nebudesk-no-drag">
+           <div className="bg-[#2d2d2d] text-gray-400 text-xs px-24 py-1.5 rounded flex items-center border border-[#3e3e42] shadow-inner cursor-pointer hover:bg-[#333333] transition-colors"
+                onClick={() => setActiveActivity('search')}
+           >
+             <Search size={14} className="mr-2" />
+             {workspace.split('/').pop() || 'NebuCode'}
+           </div>
+        </div>
+        
+        <div className="w-[70px] shrink-0"></div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Activity Bar */}
+        <div className="w-12 bg-[#333333] flex flex-col items-center py-2 space-y-4 shrink-0 border-r border-[#252526]">
         <button 
           onClick={() => setActiveActivity('explorer')}
           className={`p-2 rounded-md ${activeActivity === 'explorer' ? 'text-white border-l-2 border-white' : 'text-gray-400 hover:text-gray-200'}`}
@@ -562,9 +580,10 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             <span className="hover:bg-white/20 px-1 cursor-pointer">UTF-8</span>
             <span className="hover:bg-white/20 px-1 cursor-pointer">{activeFile ? getLang(activeFile) : 'Plain Text'}</span>
             <span className="hover:bg-white/20 px-1 cursor-pointer">Prettier</span>
-          </div>
         </div>
       </div>
+    </div>
+    </div>
     </div>
   );
 }

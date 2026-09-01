@@ -58,20 +58,21 @@ export default function TasksApp() {
 
   return (
     <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none">
-      <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center space-x-4">
-          <h2 className="font-bold text-lg text-gray-700">Task Manager</h2>
+      <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region">
+        <div className="w-[60px] shrink-0"></div> {/* Space for traffic lights */}
+        <div className="flex items-center space-x-4 nebudesk-no-drag">
+          <h2 className="font-semibold text-gray-700">Task Manager</h2>
           <button onClick={fetchProcesses} className="p-1.5 rounded-md hover:bg-gray-200 text-gray-600 transition-colors" title="Refresh">
             <RefreshCw size={16} />
           </button>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center nebudesk-no-drag">
           <input
             type="text"
             placeholder="Search processes..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-48 px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+            className="w-48 px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
           />
         </div>
       </div>

@@ -28,9 +28,12 @@ export default function SystemApp() {
 
   return (
     <div className="h-full flex flex-col bg-white text-sm">
-      <div className="flex border-b bg-gray-50">
-        <button className={`px-4 py-2 ${activeTab === 'overview' ? 'border-b-2 border-blue-500 font-bold' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
-        <button className={`px-4 py-2 ${activeTab === 'processes' ? 'border-b-2 border-blue-500 font-bold' : ''}`} onClick={() => setActiveTab('processes')}>Processes</button>
+      <div className="flex border-b border-gray-200 bg-gray-50 h-14 items-center shrink-0 nebudesk-drag-region">
+        <div className="w-[70px] shrink-0"></div> {/* Space for traffic lights */}
+        <div className="flex-1 flex space-x-2 px-2 nebudesk-no-drag">
+          <button className={`px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'overview' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('overview')}>Overview</button>
+          <button className={`px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'processes' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('processes')}>Processes</button>
+        </div>
       </div>
       
       <div className="flex-1 overflow-auto p-4">
