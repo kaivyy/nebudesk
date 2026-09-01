@@ -237,7 +237,7 @@ export default function AppsApp() {
                         <td className="py-2 px-4 font-medium text-gray-800">{name}</td>
                         <td className="py-2 px-4 text-gray-500 truncate max-w-[200px]">{c.Image}</td>
                         <td className="py-2 px-4 text-gray-500 font-mono text-xs">
-                          {c.Ports.map((p: any) => p.PublicPort ? `${p.PublicPort}->${p.PrivatePort}` : p.PrivatePort).join(', ')}
+                          {(c.Ports || []).map((p: any) => p.PublicPort ? `${p.PublicPort}->${p.PrivatePort}` : p.PrivatePort).join(', ')}
                         </td>
                         <td className="py-2 px-4">
                           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full">{c.State}</span>
