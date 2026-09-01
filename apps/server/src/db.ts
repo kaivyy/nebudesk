@@ -28,6 +28,18 @@ export async function initDb() {
     )
   `);
 
+  await dbRun(`
+    CREATE TABLE IF NOT EXISTS Documents (
+      id TEXT PRIMARY KEY,
+      userId TEXT,
+      name TEXT,
+      type TEXT,
+      content TEXT DEFAULT '',
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (userId) REFERENCES User(id)
+    )
+  `);
+
   // Seed default admin
   const admin = await dbGet(`SELECT * FROM User WHERE username = 'admin'`);
   if (!admin) {

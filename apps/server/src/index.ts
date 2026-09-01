@@ -309,6 +309,44 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
 
 registerExtensions(fastify, ALLOWED_ROOT);
 
+// Documents API
+fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { type } = request.query as { type?: string };
+  const docs = await dbAll(
+    type ? `SELECT id, name, type, updatedAt FROM Documents WHERE userId = ? AND type = ? ORDER BY updatedAt DESC` : `SELECT id, name, type, updatedAt FROM Documents WHERE userId = ? ORDER BY updatedAt DESC`,
+    type ? [request.user.id, type] : [request.user.id]
+  );
+  return docs;
+});
+
+fastify.post('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { name, type } = request.body as { name: string; type: string };
+  const id = crypto.randomUUID();
+  await dbRun(`INSERT INTO Documents (id, userId, name, type, content) VALUES (?, ?, ?, ?, ?)`, [id, request.user.id, name, type, '']);
+  return { id, name, type };
+});
+
+fastify.get('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params as { id: string };
+  const doc = await dbGet(`SELECT * FROM Documents WHERE id = ? AND userId = ?`, [id, request.user.id]);
+  if (!doc) return reply.status(404).send({ error: 'Not found' });
+  return doc;
+});
+
+fastify.put('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params as { id: string };
+  const { content, name } = request.body as { content?: string; name?: string };
+  if (content !== undefined) await dbRun(`UPDATE Documents SET content = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND userId = ?`, [content, id, request.user.id]);
+  if (name !== undefined) await dbRun(`UPDATE Documents SET name = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND userId = ?`, [name, id, request.user.id]);
+  return { success: true };
+});
+
+fastify.delete('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params as { id: string };
+  await dbRun(`DELETE FROM Documents WHERE id = ? AND userId = ?`, [id, request.user.id]);
+  return { success: true };
+});
+
 fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
   if (err) {
     console.error(err);
