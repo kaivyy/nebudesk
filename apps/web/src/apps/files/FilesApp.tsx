@@ -128,7 +128,7 @@ export default function FilesApp() {
         <div className="h-14 bg-gradient-to-b from-gray-50 to-gray-100/80 backdrop-blur-xl border-b border-gray-200/50 flex items-center px-4 shrink-0 nebudesk-drag-region select-none touch-none">
           
           {/* Left spacer for absolute traffic lights in Window.tsx */}
-          <div className="w-[60px] shrink-0"></div>
+          <div className="w-[90px] shrink-0"></div>
 
           {/* Navigation Controls (Back/Forward) */}
           <div className="flex items-center space-x-1 mr-4 shrink-0">

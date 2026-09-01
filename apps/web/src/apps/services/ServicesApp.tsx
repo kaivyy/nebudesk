@@ -49,8 +49,8 @@ export default function ServicesApp() {
   return (
     <div className="h-full flex flex-col bg-white text-sm">
       <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[70px] shrink-0"></div>
-        <div className="font-semibold text-gray-700">Services</div>
+        <div className="w-[90px] shrink-0"></div>
+        <div className="flex-1 text-center font-semibold text-gray-700 pr-[90px]">Services</div>
       </div>
       <div className="flex-1 flex overflow-hidden">
         <div className="w-1/3 border-r flex flex-col nebudesk-no-drag">

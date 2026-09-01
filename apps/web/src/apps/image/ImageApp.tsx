@@ -31,7 +31,7 @@ export default function ImageApp({ initialPath = '' }: { initialPath?: string })
   return (
     <div className="h-full flex flex-col bg-gray-900 text-white select-none">
       <div className="h-14 border-b border-gray-800 bg-gray-900 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[70px] shrink-0"></div>
+        <div className="w-[90px] shrink-0"></div>
         <div className="text-sm font-medium truncate max-w-sm text-gray-300">
           {filePath || 'No image selected'}
         </div>

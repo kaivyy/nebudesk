@@ -23,8 +23,8 @@ export default function DockerApp() {
   return (
     <div className="h-full flex flex-col bg-white text-sm">
       <div className="h-14 flex items-center border-b border-gray-200 bg-gray-50 shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[70px] shrink-0"></div>
-        <div className="font-semibold text-gray-700">Docker Containers</div>
+        <div className="w-[90px] shrink-0"></div>
+        <div className="flex-1 text-center font-semibold text-gray-700 pr-[90px]">Docker Containers</div>
       </div>
       {error && <div className="p-4 text-red-500">{error}</div>}
       <div className="flex-1 overflow-auto p-4">
