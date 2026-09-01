@@ -73,3 +73,25 @@ export const useWindowStore = create<WindowState>((set) => ({
     windows: state.windows.map(w => w.id === id ? { ...w, maximized: !w.maximized } : w)
   }))
 }));
+
+// Persist state to backend automatically
+let prevWindows = useWindowStore.getState().windows;
+let debounceTimer: any = null;
+
+useWindowStore.subscribe((state) => {
+  if (state.windows !== prevWindows) {
+    prevWindows = state.windows;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      // Don't save if it's the initial empty state load
+      if (state.windows.length === 0 && useWindowStore.getState().highestZIndex === 0) return;
+      
+      fetch(`http://${window.location.hostname}:3001/api/desktop`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ windowsJson: JSON.stringify(state.windows) })
+      }).catch(() => {});
+    }, 1000);
+  }
+});

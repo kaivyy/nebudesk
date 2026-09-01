@@ -20,23 +20,7 @@ function App() {
             useWindowStore.setState({ windows, highestZIndex });
           } catch(e) {}
 
-          // Subscribe to store changes to persist to db
-          let prevWindows = useWindowStore.getState().windows;
-          let debounceTimer: any = null;
-          useWindowStore.subscribe((state) => {
-            if (state.windows !== prevWindows) {
-              prevWindows = state.windows;
-              if (debounceTimer) clearTimeout(debounceTimer);
-              debounceTimer = setTimeout(() => {
-                fetch(`http://${window.location.hostname}:3001/api/desktop`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ windowsJson: JSON.stringify(state.windows) })
-                }).catch(() => {});
-              }, 1000);
-            }
-          });
+          // Subscription moved to windowStore.ts
         }
       } catch (err) {}
       setIsLoading(false);
