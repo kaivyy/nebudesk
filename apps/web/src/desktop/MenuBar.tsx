@@ -132,7 +132,7 @@ export default function MenuBar() {
 
   return (
     <>
-    <div className="h-7 bg-black/40 backdrop-blur-md text-white text-sm flex items-center justify-between px-2 shadow-sm border-b border-white/10 select-none z-50">
+    <div className="h-7 bg-black/40 backdrop-blur-md text-white text-sm flex items-center justify-between px-2 shadow-sm border-b border-white/10 select-none relative z-[99999]">
       <div className="flex items-center h-full">
         {/* Apple Logo Menu */}
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
