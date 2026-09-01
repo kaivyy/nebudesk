@@ -28,14 +28,14 @@ export default function Dock() {
   ];
 
   return (
-    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl p-2 flex space-x-2 z-50">
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-16px)] overflow-x-auto bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl p-2 flex space-x-2 z-50 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {apps.map(app => {
         const isOpen = windows.some(w => w.appId === app.id);
         return (
-          <div key={app.id} className="relative flex flex-col items-center">
+          <div key={app.id} className="relative flex flex-col items-center flex-shrink-0">
             <button 
               onClick={() => handleAppClick(app.id, app.title)}
-              className={`w-12 h-12 ${app.color} rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform shadow-lg`}
+              className={`w-12 h-12 sm:w-14 sm:h-14 ${app.color} rounded-xl flex items-center justify-center text-2xl sm:text-3xl hover:scale-110 transition-transform shadow-lg focus:outline-none`}
             >
               {app.emoji}
             </button>
