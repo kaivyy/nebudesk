@@ -62,7 +62,7 @@ export default function TerminalApp({ winId }: { winId: string }) {
         <span className="text-gray-400 text-xs font-semibold select-none">Terminal</span>
       </div>
       
-      <div className="flex-1 p-2 nebudesk-no-drag">
+      <div className="flex-1 p-2">
         <div ref={terminalRef} className="w-full h-full" />
       </div>
     </div>

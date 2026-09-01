@@ -60,13 +60,13 @@ export default function TasksApp() {
     <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none">
       <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[60px] shrink-0"></div> {/* Space for traffic lights */}
-        <div className="flex items-center space-x-4 nebudesk-no-drag">
+        <div className="flex items-center space-x-4">
           <h2 className="font-semibold text-gray-700">Task Manager</h2>
           <button onClick={fetchProcesses} className="p-1.5 rounded-md hover:bg-gray-200 text-gray-600 transition-colors" title="Refresh">
             <RefreshCw size={16} />
           </button>
         </div>
-        <div className="flex items-center nebudesk-no-drag">
+        <div className="flex items-center">
           <input
             type="text"
             placeholder="Search processes..."

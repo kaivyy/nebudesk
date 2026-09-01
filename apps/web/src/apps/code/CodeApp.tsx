@@ -334,8 +334,8 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         <div className="w-[70px] shrink-0"></div> {/* Space for absolute traffic lights */}
         
         {/* Mock Search / Command Palette in Titlebar */}
-        <div className="flex-1 flex justify-center nebudesk-no-drag">
-           <div className="bg-[#2d2d2d] text-gray-400 text-xs px-24 py-1.5 rounded flex items-center border border-[#3e3e42] shadow-inner cursor-pointer hover:bg-[#333333] transition-colors"
+        <div className="flex-1 flex justify-center">
+           <div className="nebudesk-no-drag bg-[#2d2d2d] text-gray-400 text-xs px-24 py-1.5 rounded flex items-center border border-[#3e3e42] shadow-inner cursor-pointer hover:bg-[#333333] transition-colors"
                 onClick={() => setActiveActivity('search')}
            >
              <Search size={14} className="mr-2" />

@@ -30,9 +30,9 @@ export default function SystemApp() {
     <div className="h-full flex flex-col bg-white text-sm">
       <div className="flex border-b border-gray-200 bg-gray-50 h-14 items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[70px] shrink-0"></div> {/* Space for traffic lights */}
-        <div className="flex-1 flex space-x-2 px-2 nebudesk-no-drag">
-          <button className={`px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'overview' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('overview')}>Overview</button>
-          <button className={`px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'processes' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('processes')}>Processes</button>
+        <div className="flex-1 flex space-x-2 px-2">
+          <button className={`nebudesk-no-drag px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'overview' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('overview')}>Overview</button>
+          <button className={`nebudesk-no-drag px-4 py-1.5 rounded-md text-sm transition-colors ${activeTab === 'processes' ? 'bg-white shadow-sm border border-gray-200 text-black font-medium' : 'text-gray-600 hover:bg-gray-200/50'}`} onClick={() => setActiveTab('processes')}>Processes</button>
         </div>
       </div>
       

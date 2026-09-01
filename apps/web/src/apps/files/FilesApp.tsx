@@ -131,7 +131,7 @@ export default function FilesApp() {
           <div className="w-[60px] shrink-0"></div>
 
           {/* Navigation Controls (Back/Forward) */}
-          <div className="flex items-center space-x-1 mr-4 shrink-0 nebudesk-no-drag">
+          <div className="flex items-center space-x-1 mr-4 shrink-0">
             <button onClick={navigateUp} className="p-1 rounded-md hover:bg-gray-200/80 transition-colors text-gray-600 disabled:opacity-30" disabled={currentPath === '/'} title="Back">
               <ChevronLeft size={18} />
             </button>
@@ -146,7 +146,7 @@ export default function FilesApp() {
           </div>
 
           {/* Right: Actions & Search */}
-          <div className="flex items-center space-x-3 shrink-0 nebudesk-no-drag">
+          <div className="flex items-center space-x-3 shrink-0">
             {/* View Mode Segmented Control */}
             <div className="flex items-center bg-gray-200/50 rounded p-0.5 border border-gray-200/50 text-gray-600 shadow-sm">
               <button onClick={() => setViewMode('grid')} className={`p-1 rounded-sm ${viewMode === 'grid' ? 'bg-white shadow-sm text-black' : 'hover:bg-gray-200/50'}`} title="Grid View">
