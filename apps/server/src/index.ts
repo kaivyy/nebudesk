@@ -285,14 +285,15 @@ fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] },
 
 fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const { stdout } = await execAsync('systemctl list-units --type=service --all --no-pager --no-legend');
-    const services = stdout.split('\n').filter(Boolean).map(line => {
-      const match = line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/);
-      if (match) {
-        return { name: match[1], load: match[2], active: match[3], sub: match[4], desc: match[5] };
-      }
-      return null;
-    }).filter(Boolean);
+    const { stdout } = await execAsync('systemctl list-units --type=service --all --output=json');
+    const parsed = JSON.parse(stdout);
+    const services = parsed.map(s => ({
+      name: s.unit,
+      load: s.load,
+      active: s.active,
+      sub: s.sub,
+      desc: s.description
+    }));
     return services;
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });

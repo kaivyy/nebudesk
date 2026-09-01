@@ -47,9 +47,13 @@ export default function ServicesApp() {
   }, [logs]);
 
   return (
-    <div className="h-full flex bg-white text-sm">
-      <div className="w-1/3 border-r flex flex-col">
-        <div className="p-2 border-b bg-gray-50 font-bold">Services</div>
+    <div className="h-full flex flex-col bg-white text-sm">
+      <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
+        <div className="w-[70px] shrink-0"></div>
+        <div className="font-semibold text-gray-700">Services</div>
+      </div>
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-1/3 border-r flex flex-col nebudesk-no-drag">
         <div className="flex-1 overflow-auto">
           {error && <div className="p-2 text-red-500">{error}</div>}
           <div className="flex flex-col">
@@ -73,6 +77,7 @@ export default function ServicesApp() {
           {logs || 'No logs available.'}
         </pre>
       </div>
+    </div>
     </div>
   );
 }
