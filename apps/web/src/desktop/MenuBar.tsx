@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
+import { Apple } from 'lucide-react';
 
 export default function MenuBar() {
   const { windows, openWindow, closeWindow, bringToFront } = useWindowStore();
@@ -24,6 +25,13 @@ export default function MenuBar() {
       return () => window.removeEventListener('click', closeMenu);
     }
   }, [activeMenu]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`http://${window.location.hostname}:3030/api/auth/logout`, { method: 'POST', credentials: 'include' });
+      window.location.reload();
+    } catch(e) {}
+  };
 
   const handleAction = (action: () => void) => {
     action();
@@ -132,7 +140,7 @@ export default function MenuBar() {
             onClick={() => toggleMenu('apple')}
             className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === 'apple' ? 'bg-white/20' : ''}`}
           >
-            <span className="text-lg leading-none mt-[-2px]"></span>
+            <Apple size={16} fill="currentColor" strokeWidth={1} />
           </button>
           
           {activeMenu === 'apple' && (
@@ -143,6 +151,7 @@ export default function MenuBar() {
               <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart...</button>
+              <button onClick={() => handleAction(handleLogout)} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Log Out Admin...</button>
             </div>
           )}
         </div>
