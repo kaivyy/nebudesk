@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Server, Globe, ShieldCheck, Box, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings, Play, Square, RotateCw, FileText, X } from 'lucide-react';
+import { Server, Globe, ShieldCheck, Box, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings, Play, Square, RotateCw, FileText, X, HelpCircle, Info, ExternalLink as ExtLink } from 'lucide-react';
 
 const BASE = () => `http://${window.location.hostname}:3001`;
 
@@ -16,6 +16,7 @@ export default function AppsApp() {
   const [cfZone, setCfZone] = useState('');
   const [savingSettings, setSavingSettings] = useState(false);
   const [viewingLogs, setViewingLogs] = useState<{name: string, logs: string} | null>(null);
+  const [showTips, setShowTips] = useState(false);
 
 
   
@@ -430,9 +431,42 @@ export default function AppsApp() {
           </div>
         ) : (
           <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold mb-4 border-b pb-2 flex items-center">
-              <Settings size={18} className="mr-2" /> Cloudflare Integration
-            </h2>
+            <div className="flex items-center justify-between mb-4 border-b pb-2">
+              <h2 className="text-lg font-semibold flex items-center">
+                <Settings size={18} className="mr-2" /> Cloudflare Integration
+              </h2>
+              <button type="button" onClick={(e) => { e.preventDefault(); setShowTips(!showTips); }} className="text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium transition-colors">
+                <HelpCircle size={16} className="mr-1" /> {showTips ? 'Hide Tips' : 'Deployment Tips'}
+              </button>
+            </div>
+            
+            {showTips && (
+              <div className="mb-6 bg-blue-50/50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900">
+                <h4 className="font-bold flex items-center mb-3"><Info size={16} className="mr-2" /> Choose Your Deployment Model</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                    <div className="font-bold text-gray-800 mb-1">🌍 VPS (Public IP)</div>
+                    <p className="text-gray-600 text-xs mb-2">For standard cloud servers with a direct public IP.</p>
+                    <ol className="list-decimal pl-4 text-xs space-y-1 text-gray-700">
+                      <li>Fill out the API Token & Zone ID below.</li>
+                      <li>When Adopting an app, check <b>Cloudflare Proxy</b>.</li>
+                      <li>NebuDesk will auto-create the DNS A-Records for you.</li>
+                    </ol>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                    <div className="font-bold text-gray-800 mb-1">🏠 Homeserver / Proxmox LXC</div>
+                    <p className="text-gray-600 text-xs mb-2">For servers behind NAT without a public IP (Zero Trust).</p>
+                    <ol className="list-decimal pl-4 text-xs space-y-1 text-gray-700 mb-2">
+                      <li>Do not use the API Token below. Instead, set up a <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center">CF Tunnel <ExtLink size={10} className="ml-0.5" /></a> manually.</li>
+                      <li>Route a <b>Wildcard Domain</b> (*.domain.com) to your local Caddy port (localhost:80).</li>
+                      <li>When Adopting, <b>UNCHECK</b> Cloudflare Proxy (DNS is handled by your tunnel).</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            )}
             <p className="text-sm text-gray-500 mb-6">
               Configure your Cloudflare API credentials here to allow NebuDesk to automatically manage DNS records when you enable Cloudflare Proxy on an application.
             </p>
