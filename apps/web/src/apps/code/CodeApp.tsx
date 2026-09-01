@@ -600,9 +600,22 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-default group">
             <div className="flex items-center space-x-1 uppercase cursor-pointer min-w-0" onClick={() => {
               document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
-                detail: { initialPath: workspace, onSelect: (p: string) => setWorkspace(p) }
+                detail: { 
+                  initialPath: workspace, 
+                  onSelect: (p: string) => {
+                    useWindowStore.getState().openWindow({
+                      appId: 'code',
+                      title: 'NebuCode',
+                      x: 150, y: 150,
+                      width: 800, height: 600,
+                      minWidth: 600, minHeight: 400,
+                      minimized: false, maximized: false,
+                      path: p
+                    } as any, true);
+                  }
+                }
               }));
-            }} title="Change Workspace Folder">
+            }} title="Open Folder in New Window">
               <ChevronDown size={14} className="shrink-0" />
               <span className="truncate">{workspace.split('/').pop() || 'ROOT'}</span>
             </div>
