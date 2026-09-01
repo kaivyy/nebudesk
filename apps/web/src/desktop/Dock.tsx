@@ -32,6 +32,13 @@ export default function Dock() {
         className="w-12 h-12 bg-blue-700 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
         🐳
       </button>
+      <button 
+        onClick={() => openWindow({
+          appId: 'services', title: 'Services & Logs', x: 300, y: 150, width: 800, height: 500, minWidth: 600, minHeight: 400, minimized: false, maximized: false
+        })}
+        className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
+        ⚙️
+      </button>
     </div>
   );
 }
