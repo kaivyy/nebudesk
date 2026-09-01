@@ -20,8 +20,10 @@ function App() {
           } catch(e) {}
 
           // Subscribe to store changes to persist to db
-          useWindowStore.subscribe((state, prevState) => {
-            if (state.windows !== prevState.windows) {
+          let prevWindows = useWindowStore.getState().windows;
+          useWindowStore.subscribe((state) => {
+            if (state.windows !== prevWindows) {
+              prevWindows = state.windows;
               fetch(`http://${window.location.hostname}:3001/api/desktop`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
