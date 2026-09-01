@@ -211,6 +211,11 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const store = useWindowStore();
   const [promptModal, setPromptModal] = useState<{type: 'folder' | 'file', onSubmit: (name: string) => void} | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, path: string, isDir: boolean } | null>(null);
+  const editorRef = useRef<any>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [qoQuery, setQoQuery] = useState('');
+  const [qoResults, setQoResults] = useState<string[]>([]);
+  const [renameModal, setRenameModal] = useState<{path: string, initialName: string} | null>(null);
 
   const handleOpenNewWindow = () => {
     if (!contextMenu) return;
@@ -443,6 +448,14 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     }
   };
 
+  const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
+    
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyP, () => {
+      setQuickOpen(true);
+    });
+  };
+
   const handleEditorChange = (val: string | undefined) => {
     if (!activeFile) return;
     setOpenFiles(prev => prev.map(f => {
@@ -454,14 +467,38 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+      e.preventDefault();
+      setQuickOpen(true);
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       if (activeFile) saveFile(activeFile);
     }
   };
 
+  useEffect(() => {
+    if (!quickOpen || qoQuery.length < 1) {
+      setQoResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const baseUrl = `http://${window.location.hostname}:3030`;
+        const res = await fetch(`${baseUrl}/api/files/search?p=${encodeURIComponent(workspace)}&q=${encodeURIComponent(qoQuery)}`, { credentials: 'include' });
+        if (res.ok) setQoResults(await res.json());
+      } catch(e) {}
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [quickOpen, qoQuery, workspace]);
+
   const handleAction = async (e: any, action: string, path: string) => {
     e.stopPropagation();
+    if (action === 'rename') {
+      const name = path.split('/').pop() || '';
+      setRenameModal({ path, initialName: name });
+      return;
+    }
     if (action === 'delete') {
       if (!confirm(`Are you sure you want to delete ${path}?`)) return;
       try {
@@ -790,6 +827,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           ) : (
             <Editor
               height="100%"
+              onMount={handleEditorDidMount}
               language={getLang(activeFile)}
               theme="vs-dark"
               value={activeFileData?.content || ''}
@@ -889,13 +927,87 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           <div className="flex space-x-4">
             <span className="hover:bg-white/20 px-1 cursor-pointer">UTF-8</span>
             <span className="hover:bg-white/20 px-1 cursor-pointer">{activeFile ? getLang(activeFile) : 'Plain Text'}</span>
-            <span className="hover:bg-white/20 px-1 cursor-pointer">Prettier</span>
+            <span className="hover:bg-white/20 px-1 cursor-pointer" onClick={() => editorRef.current?.getAction('editor.action.formatDocument')?.run()}>Format Document</span>
         </div>
       </div>
     </div>
     </div>
 
       
+      {/* Quick Open Modal */}
+      {quickOpen && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-[500px]" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#252526] rounded-md shadow-2xl border border-[#3e3e42] overflow-hidden flex flex-col max-h-[60vh]">
+            <div className="p-2 border-b border-[#3e3e42]">
+              <input
+                autoFocus
+                type="text"
+                className="w-full bg-[#3c3c3c] border border-blue-500 text-[#cccccc] rounded px-3 py-1.5 text-[13px] focus:outline-none"
+                placeholder="Search files by name (Cmd+P)..."
+                value={qoQuery}
+                onChange={e => setQoQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setQuickOpen(false);
+                }}
+                onBlur={() => setTimeout(() => setQuickOpen(false), 200)}
+              />
+            </div>
+            {qoResults.length > 0 && (
+              <div className="overflow-y-auto py-1">
+                {qoResults.map((r) => (
+                  <div 
+                    key={r} 
+                    className="px-4 py-1.5 text-[13px] text-gray-300 hover:bg-[#094771] hover:text-white cursor-pointer truncate"
+                    onMouseDown={() => {
+                      openFile(workspace + '/' + r);
+                      setQuickOpen(false);
+                      setQoQuery('');
+                    }}
+                  >
+                    {r}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {renameModal && (
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-[1px]" onClick={() => setRenameModal(null)}>
+          <div className="bg-[#252526] rounded-md shadow-2xl w-80 overflow-hidden border border-[#3e3e42]" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-2 border-b border-[#3e3e42] bg-[#2d2d2d]">
+              <h3 className="font-semibold text-[13px] text-gray-300">Rename</h3>
+            </div>
+            <div className="p-4">
+              <input
+                autoFocus
+                type="text"
+                defaultValue={renameModal.initialName}
+                className="w-full bg-[#3c3c3c] border border-[#3e3e42] text-[#cccccc] rounded px-3 py-1.5 text-[13px] focus:outline-none focus:border-blue-500"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const newName = e.currentTarget.value;
+                    const oldPath = renameModal.path;
+                    const newPath = oldPath.substring(0, oldPath.lastIndexOf('/')) + '/' + newName;
+                    const baseUrl = `http://${window.location.hostname}:3030`;
+                    await fetch(`${baseUrl}/api/files/rename`, {
+                      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ oldPath, newPath })
+                    });
+                    setRenameModal(null);
+                    loadWorkspace();
+                  } else if (e.key === 'Escape') {
+                    setRenameModal(null);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* VSCode Style Prompt Modal */}
       {promptModal && (
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-[1px]" onClick={() => setPromptModal(null)}>
@@ -950,6 +1062,15 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
               </button>
             )}
             <div className="border-t border-[#3e3e42] my-1"></div>
+            <button 
+              onClick={(e) => {
+                 handleAction(e, 'rename', contextMenu.path);
+                 setContextMenu(null);
+              }}
+              className="w-full text-left px-4 py-1.5 hover:bg-[#094771] hover:text-white transition-colors"
+            >
+              Rename
+            </button>
             <button 
               onClick={(e) => {
                  handleAction(e, 'delete', contextMenu.path);

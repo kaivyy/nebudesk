@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import MenuBar from './MenuBar';
+import CommandPalette from './CommandPalette';
 import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
@@ -68,6 +69,7 @@ export default function Desktop() {
       }}
     >
       {pickerProps && <FilePicker {...pickerProps} />}
+      <CommandPalette />
       <MenuBar />
       <div className="flex-1 relative">
         {windows.map(win => (

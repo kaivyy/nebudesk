@@ -523,6 +523,85 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
 
 registerExtensions(fastify, ALLOWED_ROOT);
 
+
+// Git API
+fastify.get('/api/git/status', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  try {
+    const { p } = request.query as { p: string };
+    const { execAsync } = await import('./utils.js').catch(() => ({ execAsync: require('util').promisify(require('child_process').exec) }));
+    
+    // Check if it's a git repo
+    try {
+      await execAsync('git rev-parse --is-inside-work-tree', { cwd: p });
+    } catch {
+      return { notRepo: true };
+    }
+
+    const { stdout: branchOut } = await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: p });
+    const { stdout: statusOut } = await execAsync('git status -s', { cwd: p });
+    
+    const branch = branchOut.trim();
+    const files = statusOut.split('\n').filter(Boolean).map(line => {
+      const status = line.substring(0, 2);
+      const file = line.substring(3);
+      return { file, status };
+    });
+
+    return { branch, files };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.post('/api/git/action', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  try {
+    const { p, action, file, message } = request.body as any;
+    const { execAsync } = await import('./utils.js').catch(() => ({ execAsync: require('util').promisify(require('child_process').exec) }));
+    
+    if (action === 'add') {
+      await execAsync(`git add "${file}"`, { cwd: p });
+    } else if (action === 'unstage') {
+      await execAsync(`git reset HEAD "${file}"`, { cwd: p });
+    } else if (action === 'commit') {
+      await execAsync(`git commit -m "${message}"`, { cwd: p });
+    } else if (action === 'push') {
+      await execAsync('git push', { cwd: p });
+    } else if (action === 'pull') {
+      await execAsync('git pull', { cwd: p });
+    } else {
+      return reply.status(400).send({ error: 'Invalid action' });
+    }
+    
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+
+fastify.get('/api/files/search', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p, q } = request.query as { p: string; q: string };
+  if (!p || !q) return [];
+  const targetPath = require('path').resolve('/root', p.replace(/^\//, ''));
+  if (!targetPath.startsWith('/root')) return reply.status(403).send({ error: 'Forbidden' });
+  
+  try {
+    const { execAsync } = await import('./utils.js').catch(() => ({ execAsync: require('util').promisify(require('child_process').exec) }));
+    
+    // Use find to search for files matching the query
+    // Simple fallback if fd or ripgrep isn't available
+    const { stdout } = await execAsync(`find "${targetPath}" -type f -name "*${q}*" -not -path "*/node_modules/*" -not -path "*/.git/*" | head -n 50`);
+    
+    const files = stdout.split('\n').filter(Boolean).map(f => {
+      // Return relative paths to workspace
+      return f.substring(targetPath.length).replace(/^\//, '');
+    });
+    return files;
+  } catch (err: any) {
+    return []; // Return empty on error (e.g. no matches)
+  }
+});
+
 // Documents API
 fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
   const { type } = request.query as { type?: string };
