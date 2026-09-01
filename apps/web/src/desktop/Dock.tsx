@@ -30,6 +30,7 @@ export default function Dock() {
     { id: 'docs', title: 'NebuDocs', icon: '/icons/pages.svg' },
     { id: 'sheet', title: 'NebuSheet', icon: '/icons/numbers.svg' },
     { id: 'slides', title: 'NebuSlides', icon: '/icons/keynote.svg' },
+    { id: 'manager', title: 'App Manager', icon: '/icons/manager.svg' },
     { id: 'settings', title: 'System Settings', icon: '/icons/settings.png' }
   ];
 

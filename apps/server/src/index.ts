@@ -11,7 +11,7 @@ import Docker from 'dockerode';
 import { exec } from 'child_process';
 import util from 'util';
 import bcrypt from 'bcrypt';
-import { initDb, dbGet, dbRun } from './db';
+import { initDb, dbGet, dbRun, dbAll } from './db';
 
 import registerExtensions from './api_extensions';
 
@@ -307,6 +307,40 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
   }
 });
 
+// Applications API (Control Panel)
+fastify.get('/api/applications', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  return await dbAll('SELECT * FROM Applications ORDER BY createdAt DESC');
+});
+
+fastify.post('/api/applications', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { name, runtime, identifier, internalHost = '127.0.0.1', internalPort, publicDomain, proxyEnabled = 0, cfEnabled = 0 } = request.body;
+  const id = crypto.randomUUID();
+  await dbRun(
+    `INSERT INTO Applications (id, name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled]
+  );
+  return { success: true, id };
+});
+
+fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params;
+  const { name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled } = request.body;
+  await dbRun(
+    `UPDATE Applications 
+     SET name = ?, runtime = ?, identifier = ?, internalHost = ?, internalPort = ?, publicDomain = ?, proxyEnabled = ?, cfEnabled = ?, updatedAt = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled, id]
+  );
+  return { success: true };
+});
+
+fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { id } = request.params;
+  await dbRun('DELETE FROM Applications WHERE id = ?', [id]);
+  return { success: true };
+});
+
 registerExtensions(fastify, ALLOWED_ROOT);
 
 // Documents API
@@ -353,4 +387,19 @@ fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
     process.exit(1);
   }
   console.log(`Backend listening at ${address}`);
+});
+
+fastify.post('/api/files/rename', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { oldPath, newPath } = request.body as { oldPath: string; newPath: string };
+  const resolvedOld = path.resolve(ALLOWED_ROOT, oldPath.replace(/^\//, ''));
+  const resolvedNew = path.resolve(ALLOWED_ROOT, newPath.replace(/^\//, ''));
+  if (!resolvedOld.startsWith(ALLOWED_ROOT) || !resolvedNew.startsWith(ALLOWED_ROOT)) {
+    return reply.status(403).send({ error: 'Forbidden' });
+  }
+  try {
+    await fs.rename(resolvedOld, resolvedNew);
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
 });

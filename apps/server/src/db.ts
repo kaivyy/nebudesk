@@ -29,6 +29,22 @@ export async function initDb() {
   `);
 
   await dbRun(`
+    CREATE TABLE IF NOT EXISTS Applications (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      runtime TEXT,
+      identifier TEXT,
+      internalHost TEXT DEFAULT '127.0.0.1',
+      internalPort INTEGER,
+      publicDomain TEXT,
+      proxyEnabled INTEGER DEFAULT 0,
+      cfEnabled INTEGER DEFAULT 0,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await dbRun(`
     CREATE TABLE IF NOT EXISTS Documents (
       id TEXT PRIMARY KEY,
       userId TEXT,

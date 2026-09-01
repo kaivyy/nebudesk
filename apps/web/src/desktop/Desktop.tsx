@@ -10,6 +10,7 @@ import ServicesApp from '../apps/services/ServicesApp';
 import CodeApp from '../apps/code/CodeApp';
 import SettingsApp from '../apps/settings/SettingsApp';
 import TasksApp from '../apps/tasks/TasksApp';
+import AppsApp from '../apps/applications/AppsApp';
 import ImageApp from '../apps/image/ImageApp';
 import DocsApp from '../apps/docs/DocsApp';
 import SheetApp from '../apps/sheet/SheetApp';
@@ -76,6 +77,7 @@ export default function Desktop() {
             {win.appId === 'services' && <ServicesApp />}
             {win.appId === 'settings' && <SettingsApp />}
             {win.appId === 'tasks' && <TasksApp />}
+            {win.appId === 'manager' && <AppsApp />}
             {win.appId === 'image' && <ImageApp initialPath={(win as any).path} />}
             {win.appId === 'docs' && <DocsApp initialPath={(win as any).path} />}
             {win.appId === 'sheet' && <SheetApp />}
