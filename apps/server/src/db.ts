@@ -45,6 +45,13 @@ export async function initDb() {
   `);
 
   await dbRun(`
+    CREATE TABLE IF NOT EXISTS Settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
+  await dbRun(`
     CREATE TABLE IF NOT EXISTS Documents (
       id TEXT PRIMARY KEY,
       userId TEXT,

@@ -14,6 +14,7 @@ import bcrypt from 'bcrypt';
 import { initDb, dbGet, dbRun, dbAll } from './db';
 
 import registerExtensions from './api_extensions';
+import { syncProxyConfig, syncCloudflareDNS } from './proxy.js';
 
 const execAsync = util.promisify(exec);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -307,6 +308,16 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
   }
 });
 
+// Settings API
+fastify.get('/api/settings', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  return await dbAll('SELECT key, value FROM Settings');
+});
+fastify.post('/api/settings', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { key, value } = request.body;
+  await dbRun('INSERT INTO Settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?', [key, value, value]);
+  return { success: true };
+});
+
 // Applications API (Control Panel)
 fastify.get('/api/applications', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   return await dbAll('SELECT * FROM Applications ORDER BY createdAt DESC');
@@ -320,6 +331,10 @@ fastify.post('/api/applications', { preValidation: [fastify.authenticate] }, asy
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled]
   );
+  
+  if (proxyEnabled) await syncProxyConfig();
+  if (cfEnabled) await syncCloudflareDNS(publicDomain, 'create');
+  
   return { success: true, id };
 });
 
@@ -332,12 +347,26 @@ fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, 
      WHERE id = ?`,
     [name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled, id]
   );
+  
+  await syncProxyConfig(); // Re-sync always in case it was disabled
+  if (cfEnabled) {
+    await syncCloudflareDNS(publicDomain, 'create');
+  } else {
+    // If we want to clean up we could, but skipping delete for safety
+  }
+  
   return { success: true };
 });
 
 fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
   const { id } = request.params;
+  
+  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
   await dbRun('DELETE FROM Applications WHERE id = ?', [id]);
+  
+  if (app) {
+    await syncProxyConfig();
+  }
   return { success: true };
 });
 

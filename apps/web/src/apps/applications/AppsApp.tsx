@@ -1,26 +1,39 @@
 import { useState, useEffect } from 'react';
-import { Server, Globe, ShieldCheck, Box, Activity, Plus, RefreshCw, Trash2, Save, ExternalLink } from 'lucide-react';
+import { Server, Globe, ShieldCheck, Box, Activity, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings } from 'lucide-react';
 
 const BASE = () => `http://${window.location.hostname}:3001`;
 
 export default function AppsApp() {
-  const [activeTab, setActiveTab] = useState<'managed' | 'discovery'>('managed');
+  const [activeTab, setActiveTab] = useState<'managed' | 'discovery' | 'settings'>('managed');
   const [apps, setApps] = useState<any[]>([]);
   const [dockerContainers, setDockerContainers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingApp, setEditingApp] = useState<any>(null);
+  
+  // Settings
+  const [cfToken, setCfToken] = useState('');
+  const [cfZone, setCfZone] = useState('');
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [appRes, dockerRes] = await Promise.all([
+      const [appRes, dockerRes, setRes] = await Promise.all([
         fetch(`${BASE()}/api/applications`, { credentials: 'include' }),
-        fetch(`${BASE()}/api/docker/containers`, { credentials: 'include' }).catch(() => null)
+        fetch(`${BASE()}/api/docker/containers`, { credentials: 'include' }).catch(() => null),
+        fetch(`${BASE()}/api/settings`, { credentials: 'include' }).catch(() => null)
       ]);
       if (appRes.ok) setApps(await appRes.json());
       if (dockerRes && dockerRes.ok) {
         const d = await dockerRes.json();
         setDockerContainers(Array.isArray(d) ? d : []);
+      }
+      if (setRes && setRes.ok) {
+        const s = await setRes.json();
+        const tk = s.find((x: any) => x.key === 'CF_API_TOKEN')?.value || '';
+        const z = s.find((x: any) => x.key === 'CF_ZONE_ID')?.value || '';
+        setCfToken(tk);
+        setCfZone(z);
       }
     } catch (e) {}
     setLoading(false);
@@ -48,6 +61,23 @@ export default function AppsApp() {
     await fetch(`${BASE()}/api/applications/${id}`, { method: 'DELETE', credentials: 'include' });
     fetchData();
   };
+  
+  const saveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    await fetch(`${BASE()}/api/settings`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'CF_API_TOKEN', value: cfToken })
+    });
+    await fetch(`${BASE()}/api/settings`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'CF_ZONE_ID', value: cfZone })
+    });
+    setSavingSettings(false);
+    alert('Settings saved successfully!');
+  };
 
   const adoptContainer = (c: any) => {
     const name = c.names[0]?.replace('/', '') || 'Unknown';
@@ -66,7 +96,6 @@ export default function AppsApp() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 text-gray-800">
-      {/* Header */}
       <div className="h-14 bg-white border-b border-gray-200 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[90px] shrink-0"></div>
         <div className="flex-1 text-center font-medium pr-[90px] flex items-center justify-center">
@@ -74,11 +103,11 @@ export default function AppsApp() {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 p-2 flex items-center justify-between shrink-0">
         <div className="flex space-x-1">
-          <button onClick={() => setActiveTab('managed')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'managed' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Managed Apps</button>
-          <button onClick={() => setActiveTab('discovery')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'discovery' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Discovery</button>
+          <button onClick={() => { setActiveTab('managed'); setEditingApp(null); }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'managed' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Managed Apps</button>
+          <button onClick={() => { setActiveTab('discovery'); setEditingApp(null); }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'discovery' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Discovery</button>
+          <button onClick={() => { setActiveTab('settings'); setEditingApp(null); }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Settings</button>
         </div>
         <div className="flex space-x-2">
           <button onClick={fetchData} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-colors" title="Refresh"><RefreshCw size={16} className={loading ? 'animate-spin' : ''} /></button>
@@ -90,7 +119,6 @@ export default function AppsApp() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {editingApp ? (
           <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -128,7 +156,7 @@ export default function AppsApp() {
                 <div className="col-span-2 flex items-center space-x-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" checked={!!editingApp.proxyEnabled} onChange={e => setEditingApp({...editingApp, proxyEnabled: e.target.checked ? 1 : 0})} className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4" />
-                    <span className="text-sm font-medium">Enable Reverse Proxy</span>
+                    <span className="text-sm font-medium">Enable Reverse Proxy Config</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" checked={!!editingApp.cfEnabled} onChange={e => setEditingApp({...editingApp, cfEnabled: e.target.checked ? 1 : 0})} className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4" />
@@ -186,7 +214,7 @@ export default function AppsApp() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'discovery' ? (
           <div>
             <h3 className="font-semibold text-gray-700 mb-3 flex items-center"><Box size={16} className="mr-2" /> Running Docker Containers</h3>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -238,6 +266,42 @@ export default function AppsApp() {
                 <p className="text-xs mt-1">Currently showing only active Docker containers. You can manually add Systemd/PM2 apps via the "Add App" button.</p>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold mb-4 border-b pb-2 flex items-center">
+              <Settings size={18} className="mr-2" /> Cloudflare Integration
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Configure your Cloudflare API credentials here to allow NebuDesk to automatically manage DNS records when you enable Cloudflare Proxy on an application.
+            </p>
+            <form onSubmit={saveSettings} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Global API Key or Token</label>
+                <input 
+                  type="password"
+                  value={cfToken}
+                  onChange={e => setCfToken(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="Bearer token or API key"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zone ID</label>
+                <input 
+                  type="text"
+                  value={cfZone}
+                  onChange={e => setCfZone(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. 023e105f4ecef8ad9ca31a8372d0c353"
+                />
+              </div>
+              <div className="pt-4 flex justify-end">
+                <button type="submit" disabled={savingSettings} className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center">
+                  <Save size={16} className="mr-2" /> {savingSettings ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>
