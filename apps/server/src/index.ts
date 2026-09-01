@@ -220,20 +220,13 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
 
 fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const [cpu, mem, fsSize, net] = await Promise.all([
-      si.cpu(), si.mem(), si.fsSize(), si.networkStats()
+    const [cpu, mem, fsSize, net, load] = await Promise.all([
+      si.cpu(), si.mem(), si.fsSize(), si.networkStats(), si.currentLoad()
     ]);
     return {
-      cpu: cpu.brand,
-      cores: cpu.cores,
-      ramTotal: mem.total,
-      ramUsed: mem.active,
-      swapTotal: mem.swaptotal,
-      swapUsed: mem.swapused,
-      diskTotal: fsSize[0]?.size || 0,
-      diskUsed: fsSize[0]?.used || 0,
-      netRx: net[0]?.rx_sec || 0,
-      netTx: net[0]?.tx_sec || 0
+      cpu: { currentLoad: load.currentLoad, cores: load.cpus.map(c => c.load) },
+      memory: { active: mem.active, total: mem.total },
+      storage: fsSize.map(fs => ({ mount: fs.mount, type: fs.type, use: fs.use, used: fs.used, size: fs.size }))
     };
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
