@@ -83,7 +83,7 @@ export default function SettingsApp() {
     <div className="h-full flex flex-row bg-white font-sans text-[13px] text-gray-800 select-none">
       
       {/* Sidebar & Window Chrome */}
-      <div className="w-[220px] bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region h-full relative z-10">
+      <div className="w-[220px] bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region touch-none select-none h-full relative z-10">
         
         {/* Traffic Light Spacer */}
         <div className="h-12 shrink-0 pointer-events-none"></div>
@@ -139,7 +139,7 @@ export default function SettingsApp() {
       <div className="flex-1 flex flex-col overflow-hidden bg-white z-0 h-full">
         
         {/* Content Header */}
-        <div className="h-14 flex items-center px-8 shrink-0 nebudesk-drag-region border-b border-transparent">
+        <div className="h-14 flex items-center px-8 shrink-0 nebudesk-drag-region touch-none select-none border-b border-transparent">
           <h1 className="text-lg font-semibold text-gray-800">
             {activeTab === 'general' && 'General'}
             {activeTab === 'appearance' && 'Appearance'}

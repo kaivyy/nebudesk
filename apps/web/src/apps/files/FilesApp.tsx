@@ -223,7 +223,7 @@ export default function FilesApp() {
     <div className="h-full flex flex-row bg-white text-gray-800 font-sans select-none" ref={containerRef}>
       
           {/* Left Unified Sidebar & Chrome */}
-    <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region h-full relative z-10">
+    <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region touch-none select-none h-full relative z-10">
       {/* Traffic Light Spacer (Window.tsx absolute lights sit here) */}
       <div className="h-14 shrink-0 pointer-events-none border-b border-transparent"></div>
       

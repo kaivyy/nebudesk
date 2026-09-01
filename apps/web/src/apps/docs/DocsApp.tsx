@@ -106,7 +106,7 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
   return (
     <div className="h-full flex flex-row bg-white">
       {/* Left Unified Sidebar & Chrome */}
-      {!initialPath && <div className="w-56 bg-gray-50 flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region h-full relative z-10">
+      {!initialPath && <div className="w-56 bg-gray-50 flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region touch-none select-none h-full relative z-10">
         {/* Traffic Light Spacer */}
         <div className="h-14 shrink-0 pointer-events-none"></div>
 
