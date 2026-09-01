@@ -249,10 +249,15 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [activeActivity, setActiveActivity] = useState('explorer');
-  const [sidebarWidth, setSidebarWidth] = useState(256);
-  const [showBottomPanel, setShowBottomPanel] = useState(false);
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(250);
+  const [activeActivity, setActiveActivity] = useState(() => localStorage.getItem('nebucode_activity') || 'explorer');
+  const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('nebucode_sidebar')) || 256);
+  const [showBottomPanel, setShowBottomPanel] = useState(() => localStorage.getItem('nebucode_terminal_open') === 'true');
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(() => Number(localStorage.getItem('nebucode_terminal_height')) || 250);
+
+  useEffect(() => { localStorage.setItem('nebucode_activity', activeActivity); }, [activeActivity]);
+  useEffect(() => { localStorage.setItem('nebucode_sidebar', sidebarWidth.toString()); }, [sidebarWidth]);
+  useEffect(() => { localStorage.setItem('nebucode_terminal_open', showBottomPanel.toString()); }, [showBottomPanel]);
+  useEffect(() => { localStorage.setItem('nebucode_terminal_height', bottomPanelHeight.toString()); }, [bottomPanelHeight]);
 
   // New states for panels
   const [searchResults, setSearchResults] = useState<string[]>([]);
