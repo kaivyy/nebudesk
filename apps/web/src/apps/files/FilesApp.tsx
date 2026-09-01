@@ -248,8 +248,11 @@ export default function FilesApp() {
                       setCurrentPath(currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`);
                     } else {
                       const path = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+                      const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
+                      const appId = isImage ? 'image' : 'code';
+                      const title = isImage ? `Image Viewer - ${file.name}` : `Code - ${file.name}`;
                       useWindowStore.getState().openWindow({
-                        appId: 'code', title: `Code - ${file.name}`, x: 150, y: 150, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path
+                        appId, title, x: 150, y: 150, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path
                       } as any, true);
                     }
                   }}

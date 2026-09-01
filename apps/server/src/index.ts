@@ -119,6 +119,18 @@ fastify.put('/api/files/content', { preValidation: [fastify.authenticate] }, asy
   }
 });
 
+fastify.get('/api/files/download', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p } = request.query as { p: string };
+  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    const stream = require('fs').createReadStream(targetPath);
+    return reply.type('application/octet-stream').send(stream);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.post('/api/files/folder', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p, name } = request.body as { p: string; name: string };
   const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
@@ -241,6 +253,18 @@ fastify.get('/api/processes', { preValidation: [fastify.authenticate] }, async (
     return reply.status(500).send({ error: err.message });
   }
 });
+
+fastify.post('/api/processes/kill', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { pid } = request.body as { pid: number };
+  if (!pid) return reply.status(400).send({ error: 'PID is required' });
+  try {
+    process.kill(pid, 'SIGKILL');
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 
 fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {

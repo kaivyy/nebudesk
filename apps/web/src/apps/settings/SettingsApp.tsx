@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useWindowStore } from '../../stores/windowStore';
+import { useState } from 'react';
+
 
 export default function SettingsApp() {
   const [theme, setTheme] = useState('system');

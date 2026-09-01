@@ -8,6 +8,8 @@ import DockerApp from '../apps/docker/DockerApp';
 import ServicesApp from '../apps/services/ServicesApp';
 import CodeApp from '../apps/code/CodeApp';
 import SettingsApp from '../apps/settings/SettingsApp';
+import TasksApp from '../apps/tasks/TasksApp';
+import ImageApp from '../apps/image/ImageApp';
 import Window from './Window';
 
 export default function Desktop() {
@@ -26,6 +28,8 @@ export default function Desktop() {
             {win.appId === 'docker' && <DockerApp />}
             {win.appId === 'services' && <ServicesApp />}
             {win.appId === 'settings' && <SettingsApp />}
+            {win.appId === 'tasks' && <TasksApp />}
+            {win.appId === 'image' && <ImageApp initialPath={(win as any).path} />}
           </Window>
         ))}
       </div>
