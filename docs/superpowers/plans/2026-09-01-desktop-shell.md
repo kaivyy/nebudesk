@@ -35,7 +35,7 @@ cd apps
 npm create vite@latest web -- --template react-ts
 ```
 
-- [ ] **Step 2: Install dependencies**
+- [x] **Step 2: Install dependencies**
 
 ```bash
 cd /root/nebudesk/apps/web
@@ -44,7 +44,7 @@ npm install tailwindcss postcss autoprefixer zustand lucide-react
 npx tailwindcss init -p
 ```
 
-- [ ] **Step 3: Configure Tailwind CSS**
+- [x] **Step 3: Configure Tailwind CSS**
 
 Write `/root/nebudesk/apps/web/tailwind.config.js`:
 ```javascript
@@ -74,12 +74,12 @@ html, body, #root {
 }
 ```
 
-- [ ] **Step 4: Verify Vite build**
+- [x] **Step 4: Verify Vite build**
 
 Run: `npm run build`
 Expected: PASS with no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git init
@@ -97,7 +97,7 @@ git commit -m "chore: init monorepo and react app"
 **Interfaces:**
 - Produces: Zustand store for managing windows.
 
-- [ ] **Step 1: Write the Zustand store**
+- [x] **Step 1: Write the Zustand store**
 
 Write `/root/nebudesk/apps/web/src/stores/windowStore.ts`:
 ```typescript
@@ -150,7 +150,7 @@ export const useWindowStore = create<WindowState>((set) => ({
 }));
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add apps/web/src/stores/windowStore.ts
@@ -171,7 +171,7 @@ git commit -m "feat: implement window manager state"
 - Consumes: `useWindowStore`
 - Produces: Rendered UI.
 
-- [ ] **Step 1: Write MenuBar**
+- [x] **Step 1: Write MenuBar**
 
 Write `/root/nebudesk/apps/web/src/desktop/MenuBar.tsx`:
 ```tsx
@@ -192,7 +192,7 @@ export default function MenuBar() {
 }
 ```
 
-- [ ] **Step 2: Write Dock**
+- [x] **Step 2: Write Dock**
 
 Write `/root/nebudesk/apps/web/src/desktop/Dock.tsx`:
 ```tsx
@@ -217,7 +217,7 @@ export default function Dock() {
 }
 ```
 
-- [ ] **Step 3: Write Desktop Component**
+- [x] **Step 3: Write Desktop Component**
 
 Write `/root/nebudesk/apps/web/src/desktop/Desktop.tsx`:
 ```tsx
@@ -254,7 +254,7 @@ export default function Desktop() {
 }
 ```
 
-- [ ] **Step 4: Update App.tsx**
+- [x] **Step 4: Update App.tsx**
 
 Write `/root/nebudesk/apps/web/src/App.tsx`:
 ```tsx
@@ -266,12 +266,12 @@ function App() {
 export default App;
 ```
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 Run: `cd /root/nebudesk/apps/web && npm run build`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .

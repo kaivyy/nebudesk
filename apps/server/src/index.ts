@@ -93,6 +93,44 @@ fastify.get('/api/files', { preValidation: [fastify.authenticate] }, async (requ
   }
 });
 
+fastify.post('/api/files/folder', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p, name } = request.body as { p: string; name: string };
+  const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  const targetPath = path.join(targetDir, name.replace(/\//g, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    await fs.mkdir(targetPath);
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.post('/api/files/file', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p, name } = request.body as { p: string; name: string };
+  const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  const targetPath = path.join(targetDir, name.replace(/\//g, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    await fs.writeFile(targetPath, '');
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.delete('/api/files', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { p } = request.query as { p: string };
+  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
+  if (!targetPath.startsWith(ALLOWED_ROOT) || targetPath === ALLOWED_ROOT) return reply.status(403).send({ error: 'Forbidden' });
+  try {
+    await fs.rm(targetPath, { recursive: true, force: true });
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
   // Simple token check for WS
   const cookies = (req.headers.cookie || '').split(';');
@@ -109,7 +147,7 @@ fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
     return;
   }
 
-  const ptyProcess = pty.spawn('bash', [], {
+  const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', 'nebudesk_term'], {
     name: 'xterm-color',
     cols: 80,
     rows: 30,
