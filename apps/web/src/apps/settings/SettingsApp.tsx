@@ -112,7 +112,7 @@ export default function SettingsApp() {
       
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-56 bg-gray-100/80 backdrop-blur-xl border-r border-gray-300 flex flex-col py-4">
+        <div className="w-56 bg-gray-100/80 backdrop-blur-xl border-r border-transparent flex flex-col py-4">
           <div className="flex flex-col px-3 space-y-1">
             {tabs.map(t => {
               const Icon = t.icon;

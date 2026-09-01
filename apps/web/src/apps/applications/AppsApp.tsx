@@ -185,14 +185,14 @@ export default function AppsApp() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 text-gray-800">
-      <div className="h-14 bg-white border-b border-gray-200 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
+      <div className="h-14 bg-white border-b border-transparent flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[90px] shrink-0"></div>
         <div className="flex-1 text-center font-medium pr-[90px] flex items-center justify-center">
           <Server size={18} className="mr-2 text-blue-500" /> App Manager
         </div>
       </div>
 
-      <div className="bg-white border-b border-gray-200 p-2 flex items-center justify-between shrink-0">
+      <div className="bg-white border-b border-transparent p-2 flex items-center justify-between shrink-0">
         <div className="flex space-x-1">
           <button onClick={() => { setActiveTab('managed'); setEditingApp(null); }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'managed' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Managed Apps</button>
           <button onClick={() => { setActiveTab('discovery'); setEditingApp(null); }} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'discovery' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}`}>Discovery</button>
@@ -329,7 +329,7 @@ export default function AppsApp() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr className="bg-gray-50 border-b border-transparent text-gray-500">
                     <th className="py-2 px-4 font-medium">Process Name</th>
                     <th className="py-2 px-4 font-medium">Memory</th>
                     <th className="py-2 px-4 font-medium">Status</th>
@@ -378,7 +378,7 @@ export default function AppsApp() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <table className="w-full text-sm text-left">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr className="bg-gray-50 border-b border-transparent text-gray-500">
                     <th className="py-2 px-4 font-medium">Container</th>
                     <th className="py-2 px-4 font-medium">Image</th>
                     <th className="py-2 px-4 font-medium">Ports</th>
@@ -505,7 +505,7 @@ export default function AppsApp() {
       {viewingLogs && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden border border-gray-200">
-            <div className="flex justify-between items-center p-3 border-b border-gray-200 bg-gray-50 shrink-0">
+            <div className="flex justify-between items-center p-3 border-b border-transparent bg-gray-50 shrink-0">
               <h3 className="font-semibold text-gray-800 flex items-center"><FileText size={16} className="mr-2 text-gray-500" /> Logs: {viewingLogs.name}</h3>
               <button onClick={() => setViewingLogs(null)} className="p-1 hover:bg-gray-200 rounded-md text-gray-500"><X size={18} /></button>
             </div>

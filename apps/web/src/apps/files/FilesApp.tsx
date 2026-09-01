@@ -219,7 +219,7 @@ export default function FilesApp() {
     <div className="h-full flex flex-row bg-white text-gray-800 font-sans select-none" ref={containerRef}>
       
           {/* Left Unified Sidebar & Chrome */}
-    <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-gray-200 nebudesk-drag-region h-full relative z-10">
+    <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region h-full relative z-10">
       {/* Traffic Light Spacer (Window.tsx absolute lights sit here) */}
       <div className="h-14 shrink-0 pointer-events-none border-b border-transparent"></div>
       
@@ -241,7 +241,7 @@ export default function FilesApp() {
     {/* Right Main Area */}
     <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
       {/* Toolbar */}
-      <div className="h-14 flex items-center px-4 justify-between border-b border-gray-200 bg-white shrink-0 nebudesk-drag-region touch-none">
+      <div className="h-14 flex items-center px-4 justify-between border-b border-transparent bg-white shrink-0 nebudesk-drag-region touch-none">
         {/* Left Nav & Title */}
         <div className="flex items-center gap-4 shrink-0">
           

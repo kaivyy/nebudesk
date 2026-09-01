@@ -106,11 +106,11 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
   return (
     <div className="h-full flex flex-row bg-white">
       {/* Left Unified Sidebar & Chrome */}
-      {!initialPath && <div className="w-56 bg-gray-50 flex-shrink-0 flex flex-col border-r border-gray-200 nebudesk-drag-region h-full relative z-10">
+      {!initialPath && <div className="w-56 bg-gray-50 flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region h-full relative z-10">
         {/* Traffic Light Spacer */}
         <div className="h-14 shrink-0 pointer-events-none"></div>
 
-          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+          <div className="p-3 border-b border-transparent flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documents</span>
             <button onClick={createDoc} className="p-1 hover:bg-gray-200 rounded" title="New Document"><Plus size={14} /></button>
           </div>
@@ -136,7 +136,7 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
 
       {/* Right Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
-        <div className="h-14 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
+        <div className="h-14 border-b border-transparent bg-gradient-to-b from-gray-50 to-gray-100 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         
         <div className="flex-1 text-center font-medium text-gray-800 pr-[90px]">
           {activeDoc ? activeDoc.name : 'NebuDocs'}
@@ -146,7 +146,7 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
       </div>
         {/* Formatting Toolbar */}
       {activeDoc && (
-        <div className="border-b border-gray-200 bg-white px-4 py-1.5 flex items-center space-x-1 shrink-0">
+        <div className="border-b border-transparent bg-white px-4 py-1.5 flex items-center space-x-1 shrink-0">
           <button onMouseDown={(e) => { e.preventDefault(); fmt('bold'); }} className="p-1.5 hover:bg-gray-100 rounded" title="Bold"><Bold size={14} /></button>
           <button onMouseDown={(e) => { e.preventDefault(); fmt('italic'); }} className="p-1.5 hover:bg-gray-100 rounded" title="Italic"><Italic size={14} /></button>
           <button onMouseDown={(e) => { e.preventDefault(); fmt('underline'); }} className="p-1.5 hover:bg-gray-100 rounded" title="Underline"><Underline size={14} /></button>
