@@ -3,7 +3,7 @@ import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRi
 
 const BASE = () => `http://${window.location.hostname}:3001`;
 
-export default function DocsApp() {
+export default function DocsApp({ initialPath }: { initialPath?: string }) {
   const [docs, setDocs] = useState<any[]>([]);
   const [activeDoc, setActiveDoc] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -16,7 +16,28 @@ export default function DocsApp() {
     if (res.ok) setDocs(await res.json());
   };
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(() => { 
+    if (initialPath) {
+      const loadFsFile = async () => {
+        try {
+          const res = await fetch(`${BASE()}/api/files/content?p=${encodeURIComponent(initialPath)}`, { credentials: 'include' });
+          if (res.ok) {
+             const data = await res.json();
+             const name = initialPath.split('/').pop() || '';
+             setActiveDoc({ id: 'fs-' + initialPath, name, type: 'doc', isFs: true, path: initialPath });
+             setTimeout(() => {
+               if (editorRef.current) {
+                 editorRef.current.innerHTML = data.content || '<p>Start writing...</p>';
+               }
+             }, 50);
+          }
+        } catch(e) {}
+      };
+      loadFsFile();
+    } else {
+      fetchDocs(); 
+    }
+  }, [initialPath]);
 
   const loadDoc = async (doc: any) => {
     const res = await fetch(`${BASE()}/api/docs/${doc.id}`, { credentials: 'include' });
@@ -58,11 +79,19 @@ export default function DocsApp() {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       const content = editorRef.current?.innerHTML || '';
-      await fetch(`${BASE()}/api/docs/${activeDoc.id}`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-      });
+      if (activeDoc.isFs) {
+        await fetch(`${BASE()}/api/files/content`, {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p: activeDoc.path, content })
+        });
+      } else {
+        await fetch(`${BASE()}/api/docs/${activeDoc.id}`, {
+          method: 'PUT', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+      }
       setSaving(false); setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }, 1500);
@@ -114,7 +143,7 @@ export default function DocsApp() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div className="w-52 bg-gray-50 border-r border-gray-200 flex flex-col">
+        {!initialPath && <div className="w-52 bg-gray-50 border-r border-gray-200 flex flex-col">
           <div className="p-3 border-b border-gray-200 flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documents</span>
             <button onClick={createDoc} className="p-1 hover:bg-gray-200 rounded" title="New Document"><Plus size={14} /></button>
@@ -136,7 +165,7 @@ export default function DocsApp() {
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Editor */}
         {activeDoc ? (

@@ -77,7 +77,7 @@ export default function Desktop() {
             {win.appId === 'settings' && <SettingsApp />}
             {win.appId === 'tasks' && <TasksApp />}
             {win.appId === 'image' && <ImageApp initialPath={(win as any).path} />}
-            {win.appId === 'docs' && <DocsApp />}
+            {win.appId === 'docs' && <DocsApp initialPath={(win as any).path} />}
             {win.appId === 'sheet' && <SheetApp />}
             {win.appId === 'slides' && <SlidesApp />}
           </Window>
