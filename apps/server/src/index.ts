@@ -131,19 +131,19 @@ fastify.delete('/api/files', { preValidation: [fastify.authenticate] }, async (r
   }
 });
 
-fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
+fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
   // Simple token check for WS
   const cookies = (req.headers.cookie || '').split(';');
   const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
   if (!tokenCookie) {
-    connection.socket.close();
+    connection.close();
     return;
   }
   const token = tokenCookie.split('=')[1];
   try {
     fastify.jwt.verify(token);
   } catch (e) {
-    connection.socket.close();
+    connection.close();
     return;
   }
 
@@ -156,10 +156,10 @@ fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
   });
 
   ptyProcess.onData((data) => {
-    connection.socket.send(JSON.stringify({ type: 'terminal.output', data }));
+    connection.send(JSON.stringify({ type: 'terminal.output', data }));
   });
 
-  connection.socket.on('message', (message) => {
+  connection.on('message', (message: any) => {
     try {
       const msg = JSON.parse(message.toString());
       if (msg.type === 'terminal.input') {
@@ -170,7 +170,7 @@ fastify.get('/ws/terminal', { websocket: true }, (connection, req) => {
     } catch (e) {}
   });
 
-  connection.socket.on('close', () => {
+  connection.on('close', () => {
     ptyProcess.kill();
   });
 });

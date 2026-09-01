@@ -216,7 +216,7 @@ export default function FilesApp() {
                     </td>
                     <td className="py-2 text-center">
                       <button 
-                        onClick={() => handleDelete(file.name)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(file.name); }}
                         className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                         title="Delete"
                       >
@@ -244,7 +244,7 @@ export default function FilesApp() {
                   <span className="text-xs text-gray-700 truncate w-full px-1">{file.name}</span>
                   
                   <button 
-                    onClick={() => handleDelete(file.name)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(file.name); }}
                     className="absolute top-1 right-1 p-1.5 rounded-full bg-white shadow-sm border border-gray-200 text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
                     title="Delete"
                   >
