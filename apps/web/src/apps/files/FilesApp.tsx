@@ -165,15 +165,19 @@ export default function FilesApp() {
     });
   };
 
-  const handleCreateFile = async () => {
-    const name = prompt('File name:');
-    if (!name?.trim()) return;
-    const res = await fetch(`${BASE}/api/files/file`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p: currentPath, name })
+  const handleCreateFile = () => {
+    setPromptModal({
+      type: 'file',
+      onSubmit: async (name) => {
+        if (!name?.trim()) return;
+        const res = await fetch(`${BASE}/api/files/file`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p: currentPath, name, content: '' })
+        });
+        if (res.ok) loadFiles(currentPath);
+      }
     });
-    if (res.ok) loadFiles(currentPath);
   };
 
   const handleRename = async () => {
