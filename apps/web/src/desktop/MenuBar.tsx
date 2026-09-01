@@ -56,16 +56,20 @@ export default function MenuBar() {
           
           {activeMenu === 'os' && (
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20 overflow-hidden">
-              <button className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About NebuDesk</button>
+              <button onClick={() => handleAction(() => alert('NebuDesk v1.0\nWeb-based Headless Linux Desktop'))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About NebuDesk</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
-              <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart Desktop</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'system', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings...</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 220, y: 170, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager...</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 240, y: 190, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager...</button>
+              <div className="h-[1px] bg-gray-300 my-1"></div>
+              <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart Desktop...</button>
               <button onClick={() => handleAction(handleLogout)} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Log Out admin...</button>
             </div>
           )}
         </div>
 
         {/* Current App Menu */}
-        <div className="font-bold px-3 h-full flex items-center">{currentAppTitle}</div>
+        <div className="font-bold px-3 h-full flex items-center cursor-default">{currentAppTitle}</div>
 
         {/* File Menu */}
         <div className="relative h-full flex items-center">
@@ -77,19 +81,19 @@ export default function MenuBar() {
           </button>
           {activeMenu === 'file' && (
             <div className="absolute top-6 left-0 w-48 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
-              <button onClick={() => handleAction(() => openWindow({ appId: 'files', title: 'Files', x: 100, y: 100, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
+              <button onClick={() => handleAction(() => openWindow({ appId: 'files', title: 'Files', x: 100, y: 100, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
                 <span>New Finder Window</span><span className="text-gray-400 group-hover:text-white/70">⌘N</span>
               </button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>New Terminal</span><span className="text-gray-400">⌘T</span>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>New Terminal</span><span className="text-gray-400 group-hover:text-white/70">⌘T</span>
               </button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button 
                 onClick={() => handleAction(() => focusedWindow && closeWindow(focusedWindow.id))} 
                 disabled={!focusedWindow}
-                className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white disabled:text-gray-400 disabled:hover:bg-transparent"
+                className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white disabled:text-gray-400 disabled:hover:bg-transparent group"
               >
-                <span>Close Window</span><span className="text-gray-400">⌘W</span>
+                <span>Close Window</span><span className="text-gray-400 group-hover:text-white/70">⌘W</span>
               </button>
             </div>
           )}
@@ -105,24 +109,24 @@ export default function MenuBar() {
           </button>
           {activeMenu === 'edit' && (
             <div className="absolute top-6 left-0 w-48 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
-              <button onClick={() => handleAction(() => document.execCommand('undo'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Undo</span><span className="text-gray-400">⌘Z</span>
+              <button onClick={() => handleAction(() => document.execCommand('undo'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Undo</span><span className="text-gray-400 group-hover:text-white/70">⌘Z</span>
               </button>
-              <button onClick={() => handleAction(() => document.execCommand('redo'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Redo</span><span className="text-gray-400">⇧⌘Z</span>
+              <button onClick={() => handleAction(() => document.execCommand('redo'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Redo</span><span className="text-gray-400 group-hover:text-white/70">⇧⌘Z</span>
               </button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
-              <button onClick={() => handleAction(() => document.execCommand('cut'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Cut</span><span className="text-gray-400">⌘X</span>
+              <button onClick={() => handleAction(() => document.execCommand('cut'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Cut</span><span className="text-gray-400 group-hover:text-white/70">⌘X</span>
               </button>
-              <button onClick={() => handleAction(() => document.execCommand('copy'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Copy</span><span className="text-gray-400">⌘C</span>
+              <button onClick={() => handleAction(() => document.execCommand('copy'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Copy</span><span className="text-gray-400 group-hover:text-white/70">⌘C</span>
               </button>
-              <button onClick={() => handleAction(() => document.execCommand('paste'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Paste</span><span className="text-gray-400">⌘V</span>
+              <button onClick={() => handleAction(() => document.execCommand('paste'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Paste</span><span className="text-gray-400 group-hover:text-white/70">⌘V</span>
               </button>
-              <button onClick={() => handleAction(() => document.execCommand('selectAll'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Select All</span><span className="text-gray-400">⌘A</span>
+              <button onClick={() => handleAction(() => document.execCommand('selectAll'))} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Select All</span><span className="text-gray-400 group-hover:text-white/70">⌘A</span>
               </button>
             </div>
           )}
@@ -141,8 +145,18 @@ export default function MenuBar() {
               <button onClick={() => handleAction(() => {
                 if (!document.fullscreenElement) document.documentElement.requestFullscreen();
                 else document.exitFullscreen();
-              })} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white">
-                Toggle Full Screen
+              })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Toggle Full Screen</span><span className="text-gray-400 group-hover:text-white/70">⌃⌘F</span>
+              </button>
+              <div className="h-[1px] bg-gray-300 my-1"></div>
+              <button onClick={() => handleAction(() => { (document.body.style as any).zoom = '125%'; })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Zoom In</span><span className="text-gray-400 group-hover:text-white/70">⌘+</span>
+              </button>
+              <button onClick={() => handleAction(() => { (document.body.style as any).zoom = '100%'; })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Actual Size</span><span className="text-gray-400 group-hover:text-white/70">⌘0</span>
+              </button>
+              <button onClick={() => handleAction(() => { (document.body.style as any).zoom = '75%'; })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Zoom Out</span><span className="text-gray-400 group-hover:text-white/70">⌘-</span>
               </button>
             </div>
           )}
@@ -160,8 +174,8 @@ export default function MenuBar() {
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
               <button onClick={() => handleAction(() => {
                 windows.forEach(w => useWindowStore.getState().minimizeWindow(w.id));
-              })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white">
-                <span>Minimize All</span><span className="text-gray-400">⌘M</span>
+              })} className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white group">
+                <span>Minimize All</span><span className="text-gray-400 group-hover:text-white/70">⌘M</span>
               </button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               {windows.length === 0 && <div className="px-4 py-1.5 text-gray-400 italic">No Windows</div>}
@@ -171,7 +185,7 @@ export default function MenuBar() {
                   onClick={() => handleAction(() => bringToFront(w.id))}
                   className="w-full text-left px-4 py-1.5 truncate hover:bg-blue-500 hover:text-white flex items-center"
                 >
-                  <span className="w-4">{w.focused ? '✓' : ''}</span>
+                  <span className="w-5">{w.focused ? '✓' : ''}</span>
                   {w.title}
                 </button>
               ))}
