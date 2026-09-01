@@ -38,7 +38,7 @@ fastify.decorate('authenticate', async (request: any, reply: any) => {
   }
 });
 
-const ALLOWED_ROOT = '/root/nebudesk';
+const ALLOWED_ROOT = '/';
 
 fastify.post('/api/auth/login', async (request, reply) => {
   const { username, password } = request.body as any;
@@ -69,6 +69,7 @@ fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (re
 
 fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
   const { windowsJson } = request.body as any;
+  console.log('PATCH /api/desktop', windowsJson);
   await dbRun(`UPDATE DesktopState SET windowsJson = ? WHERE userId = ?`, [windowsJson, request.user.id]);
   return { success: true };
 });

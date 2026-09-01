@@ -16,20 +16,25 @@ function App() {
           const state = await res.json();
           try {
             const windows = JSON.parse(state.windowsJson || '[]');
-            useWindowStore.setState({ windows });
+            const highestZIndex = windows.reduce((max: number, w: any) => Math.max(max, w.zIndex || 0), 0);
+            useWindowStore.setState({ windows, highestZIndex });
           } catch(e) {}
 
           // Subscribe to store changes to persist to db
           let prevWindows = useWindowStore.getState().windows;
+          let debounceTimer: any = null;
           useWindowStore.subscribe((state) => {
             if (state.windows !== prevWindows) {
               prevWindows = state.windows;
-              fetch(`http://${window.location.hostname}:3001/api/desktop`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ windowsJson: JSON.stringify(state.windows) })
-              }).catch(() => {});
+              if (debounceTimer) clearTimeout(debounceTimer);
+              debounceTimer = setTimeout(() => {
+                fetch(`http://${window.location.hostname}:3001/api/desktop`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ windowsJson: JSON.stringify(state.windows) })
+                }).catch(() => {});
+              }, 1000);
             }
           });
         }
