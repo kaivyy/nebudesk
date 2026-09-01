@@ -254,12 +254,28 @@ fastify.delete('/api/terminal/:termId', { preValidation: [fastify.authenticate] 
   }
 });
 
-fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+
+// Caching loop for systeminformation to ensure delta calculations work perfectly
+let cachedProcesses: any[] = [];
+let cachedSystem: any = null;
+
+const updateCache = async () => {
   try {
-    const [cpu, mem, fsSize, net, load, osInfo] = await Promise.all([
+    const [processes, cpu, mem, fsSize, net, load, osInfo] = await Promise.all([
+      si.processes(),
       si.cpu(), si.mem(), si.fsSize(), si.networkInterfaces(), si.currentLoad(), si.osInfo()
     ]);
-    return {
+    
+    cachedProcesses = processes.list.map(p => ({
+      pid: p.pid,
+      name: p.name,
+      cpu: p.cpu,
+      mem: p.mem,
+      user: p.user,
+      state: p.state
+    })).slice(0, 100);
+
+    cachedSystem = {
       cpu: { currentLoad: load.currentLoad, cores: load.cpus.map(c => c.load) },
       memory: { active: mem.active, total: mem.total },
       storage: fsSize.filter(fs => !fs.mount.includes("/var/lib/docker/overlay2") && !fs.mount.startsWith("/run") && !fs.mount.startsWith("/sys") && !fs.mount.includes("snap")).map(fs => ({ mount: fs.mount, type: fs.type, use: fs.use, used: fs.used, size: fs.size })),
@@ -267,45 +283,25 @@ fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (req
       cpuInfo: { brand: cpu.brand, cores: cpu.cores, physicalCores: cpu.physicalCores, speed: cpu.speed },
       network: (Array.isArray(net) ? net : [net]).map(n => ({ iface: n.iface, ip4: n.ip4, ip6: n.ip6, mac: n.mac }))
     };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (e) {
+    console.error('Cache update error:', e);
   }
-});
+};
+setInterval(updateCache, 2000);
+updateCache();
 
 fastify.get('/api/processes', { preValidation: [fastify.authenticate] }, async (request, reply) => {
-  try {
-    const { exec } = await import('child_process');
-    const util = await import('util');
-    const execAsync = util.promisify(exec);
-    
-    const { stdout } = await execAsync('top -b -n 2 -d 0.1 -w 512');
-    const batches = stdout.split(/top - /).filter(Boolean);
-    const lastBatch = batches[batches.length - 1];
-    const lines = lastBatch.split('\n');
-    const start = lines.findIndex(l => l.trim().startsWith('PID'));
-    
-    if (start === -1) return [];
-
-    const data = lines.slice(start + 1).filter(l => l.trim()).map(l => {
-      const parts = l.trim().split(/\s+/);
-      if (parts.length >= 12) {
-        return {
-          pid: parseInt(parts[0]),
-          user: parts[1],
-          cpu: parseFloat(parts[8]),
-          mem: parseFloat(parts[9]),
-          state: parts[7],
-          name: parts.slice(11).join(' ')
-        };
-      }
-      return null;
-    }).filter(Boolean);
-    
-    return data.slice(0, 100);
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
-  }
+  if (!cachedProcesses.length) await updateCache();
+  return cachedProcesses;
 });
+
+fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  if (!cachedSystem) await updateCache();
+  return cachedSystem;
+});
+
+
+
 
 fastify.post('/api/processes/kill', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { pid } = request.body as { pid: number };

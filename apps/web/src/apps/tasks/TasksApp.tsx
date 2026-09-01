@@ -81,7 +81,7 @@ export default function TasksApp() {
   return (
     <div className="h-full flex flex-col bg-white text-gray-800 text-sm font-sans select-none relative">
       <div className="h-14 border-b border-gray-200 bg-gray-50 flex items-center justify-between px-4 shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[90px] shrink-0"></div> {/* Space for traffic lights */}
+        <div className="w-[200px] shrink-0"></div> {/* Space for traffic lights */}
         
         <div className="flex items-center space-x-1 nebudesk-no-drag">
           <button 
@@ -98,7 +98,7 @@ export default function TasksApp() {
           </button>
         </div>
 
-        <div className="flex items-center nebudesk-no-drag">
+        <div className="flex items-center justify-end w-[200px] shrink-0 nebudesk-no-drag">
           {activeTab === 'processes' && (
             <input
               type="text"
