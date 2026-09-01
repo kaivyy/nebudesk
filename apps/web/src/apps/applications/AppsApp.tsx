@@ -80,13 +80,13 @@ export default function AppsApp() {
   };
 
   const adoptContainer = (c: any) => {
-    const name = c.Names[0]?.replace('/', '') || 'Unknown';
+    const name = c.Names?.[0]?.replace('/', '') || 'Unknown';
     setEditingApp({
       name: name,
       runtime: 'docker',
-      identifier: c.Id.substring(0, 12),
+      identifier: c.Id?.substring(0, 12) || '',
       internalHost: '127.0.0.1',
-      internalPort: c.Ports[0]?.PublicPort || 80,
+      internalPort: c.Ports?.[0]?.PublicPort || 80,
       publicDomain: name.toLowerCase() + '.example.com',
       proxyEnabled: 0,
       cfEnabled: 0
@@ -230,8 +230,8 @@ export default function AppsApp() {
                 </thead>
                 <tbody>
                   {dockerContainers.map(c => {
-                    const name = c.Names[0]?.replace('/', '');
-                    const isManaged = apps.some(a => a.identifier === c.Id.substring(0, 12) || a.identifier === name);
+                    const name = c.Names?.[0]?.replace('/', '') || 'Unknown';
+                    const isManaged = apps.some(a => a.identifier === c.Id?.substring(0, 12) || a.identifier === name);
                     return (
                       <tr key={c.Id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-2 px-4 font-medium text-gray-800">{name}</td>
