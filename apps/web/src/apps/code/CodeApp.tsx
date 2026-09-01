@@ -138,17 +138,33 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   useEffect(() => {
     const handler = (e: any) => {
       if (e.detail?.winId === winId) {
-        const p = prompt('Enter workspace path:', workspace);
-        if (p) {
-          setWorkspace(p);
-          setExpandedPaths(new Set([p]));
-          setOpenFiles([]);
-          setActiveFile(null);
-        }
+        document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
+          detail: {
+            initialPath: workspace,
+            onSelect: (p: string) => {
+              setWorkspace(p);
+              setExpandedPaths(new Set([p]));
+              setOpenFiles([]);
+              setActiveFile(null);
+            }
+          }
+        }));
+      }
+    };
+    const directHandler = (e: any) => {
+      if (e.detail?.winId === winId && e.detail.path) {
+        setWorkspace(e.detail.path);
+        setExpandedPaths(new Set([e.detail.path]));
+        setOpenFiles([]);
+        setActiveFile(null);
       }
     };
     document.addEventListener('nebucode:open-folder', handler);
-    return () => document.removeEventListener('nebucode:open-folder', handler);
+    document.addEventListener('nebucode:open-folder-direct', directHandler);
+    return () => {
+      document.removeEventListener('nebucode:open-folder', handler);
+      document.removeEventListener('nebucode:open-folder-direct', directHandler);
+    };
   }, [winId, workspace]);
 
   // Load root workspace
@@ -354,8 +370,12 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         <div className={`flex-1 overflow-y-auto outline-none pb-4 ${activeActivity === 'explorer' ? 'block' : 'hidden'}`}>
           <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-pointer group">
             <div className="flex items-center space-x-1 uppercase" onClick={() => {
-              const p = prompt('Enter workspace path:', workspace);
-              if (p) setWorkspace(p);
+              document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
+                detail: {
+                  initialPath: workspace,
+                  onSelect: (p: string) => setWorkspace(p)
+                }
+              }));
             }}>
               <ChevronDown size={14} />
               <span>{workspace.split('/').pop() || 'ROOT'}</span>
@@ -363,8 +383,12 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             <div className="opacity-0 group-hover:opacity-100 flex space-x-1 pr-1">
               <button onClick={(e) => {
                 e.stopPropagation();
-                const p = prompt('Enter workspace path:', workspace);
-                if (p) setWorkspace(p);
+                document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
+                  detail: {
+                    initialPath: workspace,
+                    onSelect: (p: string) => setWorkspace(p)
+                  }
+                }));
               }} title="Open Folder" className="p-0.5 hover:bg-gray-600 rounded"><FolderPlus size={14} /></button>
             </div>
           </div>
