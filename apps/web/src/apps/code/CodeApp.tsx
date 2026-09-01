@@ -226,7 +226,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       minimized: false,
       maximized: false,
       path: contextMenu.path
-    } as any);
+    } as any, true);
     setContextMenu(null);
   };
 

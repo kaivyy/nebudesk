@@ -127,11 +127,7 @@ export default function MenuBar() {
                   detail: {
                     initialPath: '/root',
                     onSelect: (p: string) => {
-                      if (focusedWindow?.appId === 'code') {
-                        document.dispatchEvent(new CustomEvent('nebucode:open-folder-direct', { detail: { winId: focusedWindow.id, path: p } }));
-                      } else {
-                        openWindow({ appId: 'code', title: `Code - ${p}`, x: 130, y: 130, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
-                      }
+                      openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
                     }
                   } 
                 }));

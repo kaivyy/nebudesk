@@ -454,9 +454,22 @@ export default function FilesApp() {
             </>
           )}
           {contextMenu.file.isDir && (
-            <button onClick={() => { navigate(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-              <FolderOpen size={14} className="text-blue-500" /><span>Open Folder</span>
-            </button>
+            <>
+              <button onClick={() => { navigate(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                <FolderOpen size={14} className="text-blue-500" /><span>Open Folder</span>
+              </button>
+              <button onClick={() => { 
+                useWindowStore.getState().openWindow({
+                  appId: 'code', title: 'NebuCode',
+                  x: 150, y: 150, width: 800, height: 600,
+                  minWidth: 600, minHeight: 400, minimized: false, maximized: false,
+                  path: contextMenu.fullPath
+                } as any, true);
+                setContextMenu(null); 
+              }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                <Code2 size={14} className="text-gray-500" /><span>Open in NebuCode</span>
+              </button>
+            </>
           )}
           <button onClick={() => { handleCopy(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
             <Copy size={14} className="text-gray-500" /><span>Copy Path</span>
