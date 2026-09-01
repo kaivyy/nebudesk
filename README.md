@@ -6,8 +6,8 @@
   **Your Lightweight Server Control Panel, Masquerading as a macOS Desktop**
 
   [![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)](https://nodejs.org/)
-  [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
-  [![TailwindCSS](https://img.shields.io/badge/Tailwind-3.0-38B2AC.svg)](https://tailwindcss.com/)
+  [![React](https://img.shields.io/badge/React-19.2-blue.svg)](https://reactjs.org/)
+  [![TailwindCSS](https://img.shields.io/badge/Tailwind-4.3-38B2AC.svg)](https://tailwindcss.com/)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
   *NebuDesk transforms the daunting task of Linux Server Administration into a familiar, beautiful, and highly secure Desktop Experience.*

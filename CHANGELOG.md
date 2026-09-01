@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.1.1] - 2026-09-02
+### 🚀 Dependency Upgrades & Fixes
+- **Port 5050 Fix**: Resolved an issue where the Vite frontend server failed to bind correctly to port 5050.
+- **Bleeding-Edge Resources**: Verified and updated all core dependencies to their absolute latest versions (React v19.2.8, Vite v8.2.2, Tailwind v4.3.3). NebuDesk is now running on the most modern tech stack available!
+
 ## [v0.1.0] - 2026-09-02
 ### 🎉 Initial Alpha Release
 NebuDesk is officially born! This release establishes the core foundation of a lightweight, highly secure, macOS-style server control panel.
