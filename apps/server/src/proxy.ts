@@ -21,13 +21,13 @@ export async function syncProxyConfig() {
     if (!app.publicDomain) continue;
     
     // Caddy
-    caddyConfig += \`\${app.publicDomain} {
+    caddyConfig += `\${app.publicDomain} {
   reverse_proxy \${app.internalHost}:\${app.internalPort}
 }
-\`;
+`;
 
     // Nginx
-    nginxConfig += \`server {
+    nginxConfig += `server {
     listen 80;
     server_name \${app.publicDomain};
     location / {
@@ -36,7 +36,7 @@ export async function syncProxyConfig() {
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
-\`;
+`;
   }
 
   await fs.writeFile(path.join(PROXY_DIR, 'Caddyfile'), caddyConfig, 'utf-8');
@@ -46,7 +46,7 @@ export async function syncProxyConfig() {
   try {
     const { stdout: caddyCheck } = await execAsync('which caddy').catch(() => ({ stdout: '' }));
     if (caddyCheck.trim()) {
-      await execAsync(\`caddy reload --config \${path.join(PROXY_DIR, 'Caddyfile')}\`).catch(e => console.error("Caddy reload failed:", e));
+      await execAsync(`caddy reload --config \${path.join(PROXY_DIR, 'Caddyfile')}`).catch(e => console.error("Caddy reload failed:", e));
     }
     
     const { stdout: nginxCheck } = await execAsync('which nginx').catch(() => ({ stdout: '' }));
@@ -77,17 +77,17 @@ export async function syncCloudflareDNS(domain: string, action: 'create' | 'dele
     const { ip } = await ipRes.json();
 
     // 2. Search for existing DNS record
-    const searchRes = await fetch(\`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records?name=\${domain}\`, {
-      headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' }
+    const searchRes = await fetch(`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records?name=\${domain}`, {
+      headers: { 'Authorization': `Bearer \${token}`, 'Content-Type': 'application/json' }
     });
     const searchData = await searchRes.json();
     const existing = searchData.result?.[0];
 
     if (action === 'delete') {
       if (existing) {
-        await fetch(\`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records/\${existing.id}\`, {
+        await fetch(`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records/\${existing.id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' }
+          headers: { 'Authorization': `Bearer \${token}`, 'Content-Type': 'application/json' }
         });
       }
       return { success: true };
@@ -102,15 +102,15 @@ export async function syncCloudflareDNS(domain: string, action: 'create' | 'dele
       };
 
       if (existing) {
-        await fetch(\`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records/\${existing.id}\`, {
+        await fetch(`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records/\${existing.id}`, {
           method: 'PUT',
-          headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer \${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        await fetch(\`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records\`, {
+        await fetch(`https://api.cloudflare.com/client/v4/zones/\${zoneId}/dns_records`, {
           method: 'POST',
-          headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer \${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       }
