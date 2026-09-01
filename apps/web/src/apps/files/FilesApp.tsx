@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Folder, File, Search, Trash2, FileText, 
-  FolderPlus, FilePlus, Home, Code2, Image,
-  ChevronLeft, ChevronRight, LayoutGrid, AlignJustify, FolderOpen,
-  HardDrive, Presentation, Film, Music, Archive, Table2, Edit2, Copy, Download
+  FolderPlus, FilePlus, Home, Code2, Image as ImageIcon,
+  ChevronLeft, ChevronRight, LayoutGrid, FolderOpen,
+  Presentation, Film, Music, Archive, Table2, Edit2, Copy, Download,
+  Clock, Users, AppWindow, ArrowDownCircle, Monitor, Cloud, HardDrive, List, MoreHorizontal
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -22,7 +23,7 @@ interface ContextMenu {
 function getFileInfo(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() || '';
   if (/^(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/.test(ext))
-    return { appId: 'image', icon: Image, color: 'text-pink-400', label: 'Image' };
+    return { appId: 'image', icon: ImageIcon, color: 'text-pink-400', label: 'Image' };
   if (/^(md|txt|rtf|doc|docx|odt|pages)$/.test(ext))
     return { appId: 'docs', icon: FileText, color: 'text-blue-500', label: 'Document' };
   if (/^(csv|xlsx|xls|ods|numbers)$/.test(ext))
@@ -47,6 +48,24 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const FolderIcon = ({ children }: { children?: React.ReactNode }) => (
+  <div className="relative w-14 h-12 flex flex-col items-center justify-center">
+    <svg viewBox="0 0 100 80" className="w-14 h-14 text-[#3b82f6] drop-shadow-sm">
+      <path
+        d="M5,15 L35,15 L45,25 L95,25 C97.7614237,25 100,27.2385763 100,30 L100,75 C100,77.7614237 97.7614237,80 95,80 L5,80 C2.23857625,80 0,77.7614237 0,75 L0,20 C0,17.2385763 2.23857625,15 5,15 Z"
+        fill="currentColor"
+        opacity="0.9"
+      />
+      <path
+        d="M5,15 L35,15 L45,25 L95,25 C97.7614237,25 100,27.2385763 100,30 L100,35 L0,35 L0,20 C0,17.2385763 2.23857625,15 5,15 Z"
+        fill="white"
+        opacity="0.2"
+      />
+    </svg>
+    {children}
+  </div>
+);
+
 export default function FilesApp() {
   const [currentPath, setCurrentPath] = useState('/root');
   const [history, setHistory] = useState(['/root']);
@@ -54,7 +73,7 @@ export default function FilesApp() {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
@@ -180,171 +199,198 @@ export default function FilesApp() {
     files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())),
     [files, searchQuery]);
 
-  const breadcrumbs = currentPath.split('/').filter(Boolean);
+  const SidebarItem = ({ icon: Icon, label, path, isActive }: any) => (
+    <div
+      onClick={() => navigate(path)}
+      className={`flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-default select-none text-sm transition-colors
+        ${isActive ? 'bg-[#dcdcdc] font-medium text-gray-900' : 'hover:bg-gray-200 text-gray-700'}`}
+    >
+      <Icon size={16} className={`${isActive ? 'text-blue-500' : 'text-blue-400'}`} />
+      <span className="truncate">{label}</span>
+    </div>
+  );
 
   return (
-    <div className="h-full flex flex-col bg-[#f9f9f9] text-gray-800 text-sm" ref={containerRef}>
+    <div className="h-full flex flex-col bg-white text-gray-800 font-sans select-none" ref={containerRef}>
+      
       {/* Toolbar */}
-      <div className="h-14 bg-gradient-to-b from-gray-50 to-gray-100/80 backdrop-blur-xl border-b border-gray-200/50 flex items-center px-4 shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[90px] shrink-0"></div>
-        
-        {/* Nav */}
-        <div className="flex items-center space-x-1 mr-3 shrink-0">
-          <button onClick={goBack} disabled={historyIdx === 0} className="p-1 rounded-md hover:bg-gray-200/80 transition-colors text-gray-600 disabled:opacity-30"><ChevronLeft size={18} /></button>
-          <button onClick={goForward} disabled={historyIdx >= history.length - 1} className="p-1 rounded-md hover:bg-gray-200/80 transition-colors text-gray-600 disabled:opacity-30"><ChevronRight size={18} /></button>
+      <div className="h-14 flex items-center px-4 justify-between border-b border-gray-200 bg-white shrink-0 nebudesk-drag-region touch-none">
+        {/* Left Nav & Title */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="w-[70px] shrink-0"></div> {/* Spacer for traffic lights */}
+          <div className="flex gap-1 text-gray-500 nebudesk-no-drag">
+            <button onClick={goBack} disabled={historyIdx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={20} /></button>
+            <button onClick={goForward} disabled={historyIdx >= history.length - 1} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronRight size={20} /></button>
+          </div>
+          <h1 className="font-semibold text-gray-800 text-sm truncate max-w-[200px]">{currentPath.split('/').pop() || 'Root'}</h1>
         </div>
 
-        {/* Breadcrumbs */}
-        <div className="flex items-center space-x-1 flex-1 min-w-0 text-xs text-gray-600">
-          <button onClick={() => navigate('/root')} className="hover:text-blue-500 flex items-center shrink-0 nebudesk-no-drag">
-            <Home size={14} />
-          </button>
-          {breadcrumbs.map((seg, i) => {
-            const path = '/' + breadcrumbs.slice(0, i + 1).join('/');
-            return (
-              <span key={i} className="flex items-center shrink-0 nebudesk-no-drag">
-                <span className="text-gray-400 mx-1">/</span>
-                <button onClick={() => navigate(path)} className="hover:text-blue-500 truncate max-w-[100px]">{seg}</button>
-              </span>
-            );
-          })}
-        </div>
+        {/* Right Controls */}
+        <div className="flex items-center gap-3 nebudesk-no-drag">
+          {/* View Toggle */}
+          <div className="flex items-center bg-[#f3f3f3] rounded-md border border-gray-200 p-0.5">
+            <button onClick={() => setViewMode('grid')} className={`p-1 px-2 rounded-md transition-colors ${viewMode === 'grid' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><LayoutGrid size={16} /></button>
+            <button onClick={() => setViewMode('list')} className={`p-1 px-2 rounded-md transition-colors ${viewMode === 'list' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><List size={16} /></button>
+          </div>
 
-        {/* Search */}
-        <div className="flex items-center bg-gray-200/60 rounded-md px-2 py-1 nebudesk-no-drag mr-2">
-          <Search size={13} className="text-gray-400 mr-1" />
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search" className="bg-transparent text-xs focus:outline-none w-24" />
-        </div>
+          {/* Actions */}
+          <div className="flex items-center gap-1 text-gray-500">
+            <button onClick={handleCreateFolder} className="p-1.5 hover:bg-gray-100 rounded-md" title="New Folder"><FolderPlus size={18} /></button>
+            <button onClick={handleCreateFile} className="p-1.5 hover:bg-gray-100 rounded-md" title="New File"><FilePlus size={18} /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md"><MoreHorizontal size={18} /></button>
+          </div>
 
-        {/* View toggle */}
-        <div className="flex items-center bg-gray-200/60 rounded-md p-0.5 nebudesk-no-drag mr-2">
-          <button onClick={() => setViewMode('list')} className={`p-1 rounded ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}><AlignJustify size={14} /></button>
-          <button onClick={() => setViewMode('grid')} className={`p-1 rounded ${viewMode === 'grid' ? 'bg-white shadow-sm' : ''}`}><LayoutGrid size={14} /></button>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center space-x-1 nebudesk-no-drag">
-          <button onClick={handleCreateFolder} className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="New Folder"><FolderPlus size={16} /></button>
-          <button onClick={handleCreateFile} className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="New File"><FilePlus size={16} /></button>
+          {/* Search */}
+          <div className="relative flex items-center">
+            <Search size={14} className="absolute left-2 text-gray-400" />
+            <input 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              type="text" 
+              placeholder="Search"
+              className="pl-7 pr-3 py-1 w-24 bg-[#f3f3f3] border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all focus:w-40"
+            />
+          </div>
         </div>
       </div>
 
       {error && <div className="px-4 py-2 text-red-500 bg-red-50 text-xs border-b border-red-100">{error}</div>}
 
-      {/* Content Area with Sidebar */}
+      {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
+        
         {/* Sidebar */}
-        <div className="w-48 bg-gray-50/80 backdrop-blur-md border-r border-gray-200 flex flex-col pt-3 pb-2 select-none overflow-y-auto">
-          <div className="px-4 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Favorites</div>
-          <button onClick={() => navigate('/root')} className={`flex items-center px-4 py-1.5 mx-2 rounded-md text-sm transition-colors ${currentPath === '/root' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200/50'}`}>
-            <Home size={16} className={`mr-2 ${currentPath === '/root' ? 'text-white' : 'text-blue-500'}`} /> <span className="truncate">Home</span>
-          </button>
-          <button onClick={() => navigate('/root/Documents')} className={`flex items-center px-4 py-1.5 mx-2 rounded-md text-sm transition-colors mt-0.5 ${currentPath === '/root/Documents' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200/50'}`}>
-            <FileText size={16} className={`mr-2 ${currentPath === '/root/Documents' ? 'text-white' : 'text-blue-500'}`} /> <span className="truncate">Documents</span>
-          </button>
-          <button onClick={() => navigate('/root/Downloads')} className={`flex items-center px-4 py-1.5 mx-2 rounded-md text-sm transition-colors mt-0.5 ${currentPath === '/root/Downloads' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200/50'}`}>
-            <Folder size={16} className={`mr-2 ${currentPath === '/root/Downloads' ? 'text-white' : 'text-blue-500'}`} /> <span className="truncate">Downloads</span>
-          </button>
-          
-          <div className="px-4 mt-4 mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Locations</div>
-          <button onClick={() => navigate('/')} className={`flex items-center px-4 py-1.5 mx-2 rounded-md text-sm transition-colors ${currentPath === '/' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200/50'}`}>
-            <HardDrive size={16} className={`mr-2 ${currentPath === '/' ? 'text-white' : 'text-gray-500'}`} /> <span className="truncate">Root</span>
-          </button>
+        <div className="w-52 bg-[#f3f3f3] bg-opacity-90 flex-shrink-0 flex flex-col border-r border-gray-200">
+          <div className="flex-1 overflow-y-auto py-2 space-y-1">
+            <SidebarItem icon={Clock} label="Terbaru" path="/root" isActive={currentPath === '/root' && history.length === 1} />
+            <SidebarItem icon={Users} label="Dibagikan" path="/root" isActive={false} />
+            
+            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
+            <SidebarItem icon={AppWindow} label="Aplikasi" path="/root/Apps" isActive={currentPath === '/root/Apps'} />
+            <SidebarItem icon={ArrowDownCircle} label="Unduhan" path="/root/Downloads" isActive={currentPath === '/root/Downloads'} />
+            <SidebarItem icon={Monitor} label="Desktop" path="/root/Desktop" isActive={currentPath === '/root/Desktop'} />
+            <SidebarItem icon={FileText} label="Dokumen" path="/root/Documents" isActive={currentPath === '/root/Documents'} />
+
+            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Lokasi</div>
+            <SidebarItem icon={Cloud} label="NebuCloud" path="/root" isActive={currentPath === '/root'} />
+            <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
+            <SidebarItem icon={HardDrive} label="System Root" path="/" isActive={currentPath === '/'} />
+          </div>
         </div>
 
-        {/* File List */}
-        <div className="flex-1 overflow-auto p-4 bg-white">
-        {filteredFiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
-            <Folder size={64} className="text-gray-200" strokeWidth={1} />
-            <p>Empty folder</p>
-          </div>
-        ) : viewMode === 'list' ? (
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="text-gray-400 border-b border-gray-200 text-xs uppercase tracking-wide">
-                <th className="pb-2 font-medium pl-2">Name</th>
-                <th className="pb-2 font-medium w-28">Kind</th>
-                <th className="pb-2 font-medium w-24 text-right">Size</th>
-                <th className="pb-2 w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
+        {/* File List/Grid */}
+        <div className="flex-1 overflow-auto p-4 bg-white relative" onClick={() => setRenaming(null)}>
+          {filteredFiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
+              <FolderIcon />
+              <p>Kosong</p>
+            </div>
+          ) : viewMode === 'list' ? (
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="text-gray-400 border-b border-gray-100 text-xs uppercase tracking-wide">
+                  <th className="pb-2 font-medium pl-2">Name</th>
+                  <th className="pb-2 font-medium w-28">Kind</th>
+                  <th className="pb-2 font-medium w-24 text-right">Size</th>
+                  <th className="pb-2 w-16"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFiles.map(file => {
+                  const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+                  const info = file.isDir ? null : getFileInfo(file.name);
+                  const Icon = info ? info.icon : Folder;
+                  return (
+                    <tr
+                      key={file.name}
+                      onClick={() => openItem(file)}
+                      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
+                      className="border-b border-gray-50 hover:bg-blue-50 group cursor-pointer transition-colors"
+                    >
+                      <td className="py-2 flex items-center space-x-3 pl-2">
+                        {file.isDir ? (
+                          <div className="scale-[0.5] -m-3 origin-left"><FolderIcon /></div>
+                        ) : (
+                          <Icon size={20} strokeWidth={1.5} className={info?.color || 'text-gray-400'} />
+                        )}
+                        {renaming === file.name ? (
+                          <input
+                            autoFocus
+                            value={renameVal}
+                            onClick={e => e.stopPropagation()}
+                            onChange={e => setRenameVal(e.target.value)}
+                            onBlur={handleRename}
+                            onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(null); }}
+                            className="border border-blue-400 rounded px-1 text-sm focus:outline-none w-40"
+                          />
+                        ) : (
+                          <span className="truncate max-w-xs">{file.name}</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-gray-500 text-xs">{file.isDir ? 'Folder' : info?.label}</td>
+                      <td className="py-2 text-gray-500 text-xs text-right">{file.isDir ? '--' : formatSize(file.size)}</td>
+                      <td className="py-2 text-right pr-2">
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center justify-end space-x-1 transition-opacity">
+                          <button onClick={e => { e.stopPropagation(); setRenaming(file.name); setRenameVal(file.name); }} className="p-1 rounded hover:bg-gray-200 text-gray-500" title="Rename"><Edit2 size={13} /></button>
+                          <button onClick={e => { e.stopPropagation(); handleDelete(file.name); }} className="p-1 rounded hover:bg-red-100 text-red-500" title="Delete"><Trash2 size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-x-4 gap-y-8 content-start pt-2">
               {filteredFiles.map(file => {
                 const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
                 const info = file.isDir ? null : getFileInfo(file.name);
                 const Icon = info ? info.icon : Folder;
                 return (
-                  <tr
+                  <div
                     key={file.name}
-                    onDoubleClick={() => openItem(file)}
-                    onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
-                    className="border-b border-gray-100 hover:bg-blue-50/60 group cursor-default transition-colors"
+                    onClick={(e) => { e.stopPropagation(); openItem(file); }}
+                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
+                    className="flex flex-col items-center gap-1 group cursor-pointer relative"
                   >
-                    <td className="py-1.5 flex items-center space-x-2 pl-2">
-                      <Icon size={18} strokeWidth={1.5} className={file.isDir ? 'text-blue-400 fill-blue-100' : (info?.color || 'text-gray-400')} />
-                      {renaming === file.name ? (
-                        <input
-                          autoFocus
-                          value={renameVal}
-                          onChange={e => setRenameVal(e.target.value)}
-                          onBlur={handleRename}
-                          onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(null); }}
-                          className="border border-blue-400 rounded px-1 text-sm focus:outline-none w-40"
-                        />
+                    <div className="w-16 h-16 flex items-center justify-center relative">
+                      {file.isDir ? (
+                        <FolderIcon />
                       ) : (
-                        <span className="truncate max-w-xs">{file.name}</span>
+                        <div className="w-14 h-16 rounded-md shadow-sm overflow-hidden border border-gray-200/50 bg-gray-50 flex items-center justify-center">
+                          <Icon size={32} strokeWidth={1} className={info?.color || 'text-gray-400'} />
+                        </div>
                       )}
-                    </td>
-                    <td className="py-1.5 text-gray-400 text-xs">{file.isDir ? 'Folder' : info?.label}</td>
-                    <td className="py-1.5 text-gray-400 text-xs text-right">{file.isDir ? '--' : formatSize(file.size)}</td>
-                    <td className="py-1.5 text-right pr-2">
-                      <div className="opacity-0 group-hover:opacity-100 flex items-center justify-end space-x-1 transition-opacity">
-                        {!file.isDir && (
-                          <button onClick={() => openItem(file)} className="p-1 rounded hover:bg-blue-100 text-blue-500" title="Open"><FolderOpen size={13} /></button>
-                        )}
-                        <button onClick={e => { e.stopPropagation(); setRenaming(file.name); setRenameVal(file.name); }} className="p-1 rounded hover:bg-gray-100 text-gray-500" title="Rename"><Edit2 size={13} /></button>
-                        <button onClick={e => { e.stopPropagation(); handleDelete(file.name); }} className="p-1 rounded hover:bg-red-50 text-red-400" title="Delete"><Trash2 size={13} /></button>
+                    </div>
+                    {renaming === file.name ? (
+                      <input
+                        autoFocus
+                        value={renameVal}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setRenameVal(e.target.value)}
+                        onBlur={handleRename}
+                        onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(null); }}
+                        className="border border-blue-400 rounded px-1 text-xs text-center focus:outline-none w-20 z-10"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-800 text-center max-w-[80px] truncate group-hover:bg-blue-500 group-hover:text-white px-1.5 py-0.5 rounded transition-colors">
+                          {file.name}
+                        </span>
                       </div>
-                    </td>
-                  </tr>
+                    )}
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
-            {filteredFiles.map(file => {
-              const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
-              const info = file.isDir ? null : getFileInfo(file.name);
-              const Icon = info ? info.icon : Folder;
-              return (
-                <div
-                  key={file.name}
-                  onDoubleClick={() => openItem(file)}
-                  onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-blue-50 group cursor-default text-center transition-colors relative select-none"
-                >
-                  <Icon size={44} strokeWidth={1.2} className={`mb-2 ${file.isDir ? 'text-blue-400' : (info?.color || 'text-gray-400')}`} />
-                  <span className="text-xs text-gray-700 truncate w-full px-1">{file.name}</span>
-                  <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex space-x-0.5 transition-opacity">
-                    {!file.isDir && (
-                      <button onClick={e => { e.stopPropagation(); openItem(file); }} className="p-1 rounded-full bg-white shadow-sm text-blue-500 hover:bg-blue-50" title="Open"><FolderOpen size={10} /></button>
-                    )}
-                    <button onClick={e => { e.stopPropagation(); handleDelete(file.name); }} className="p-1 rounded-full bg-white shadow-sm text-red-400 hover:bg-red-50" title="Delete"><Trash2 size={10} /></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white/90 backdrop-blur-lg border border-gray-200 rounded-xl shadow-2xl py-1.5 min-w-[180px] text-sm"
+          className="fixed z-50 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-2xl py-1.5 min-w-[180px] text-sm"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
