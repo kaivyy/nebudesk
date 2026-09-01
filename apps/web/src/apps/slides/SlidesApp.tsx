@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Presentation } from 'lucide-react';
 
-const BASE = () => `http://${window.location.hostname}:3001`;
+const BASE = () => `http://${window.location.hostname}:3030`;
 
 interface SlideElement { id: string; type: 'text'; x: number; y: number; w: number; h: number; content: string; fontSize: number; color: string; bold: boolean; align: string; }
 interface Slide { id: string; bg: string; elements: SlideElement[]; }

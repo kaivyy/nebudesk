@@ -24,7 +24,7 @@ export default function SettingsApp() {
   useEffect(() => {
     const fetchInfo = async () => {
       try {
-        const baseUrl = `http://${window.location.hostname}:3001`;
+        const baseUrl = `http://${window.location.hostname}:3030`;
         const res = await fetch(`${baseUrl}/api/system`, { credentials: 'include' });
         if (res.ok) setSysInfo(await res.json());
       } catch (err: any) {
@@ -38,7 +38,7 @@ export default function SettingsApp() {
   useEffect(() => {
     const fetchPrefs = async () => {
       try {
-        const baseUrl = `http://${window.location.hostname}:3001`;
+        const baseUrl = `http://${window.location.hostname}:3030`;
         const res = await fetch(`${baseUrl}/api/desktop`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
@@ -52,7 +52,7 @@ export default function SettingsApp() {
 
   const handleSave = async () => {
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       await fetch(`${baseUrl}/api/desktop`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

@@ -7,7 +7,7 @@ export default function DockerApp() {
   useEffect(() => {
     const fetchContainers = async () => {
       try {
-        const baseUrl = `http://${window.location.hostname}:3001`;
+        const baseUrl = `http://${window.location.hostname}:3030`;
         const res = await fetch(`${baseUrl}/api/docker/containers`, { credentials: 'include' });
         if (!res.ok) throw new Error('Failed to fetch containers');
         setContainers(await res.json());

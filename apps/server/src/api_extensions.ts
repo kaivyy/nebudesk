@@ -6,7 +6,7 @@ import path from 'path';
 const execPromise = util.promisify(exec);
 
 export default function registerExtensions(fastify: any, ALLOWED_ROOT: string) {
-  fastify.get('/api/git/status', { preValidation: [(fastify as any).authenticate] }, async (request, reply) => {
+  fastify.get('/api/git/status', { preValidation: [fastify.authenticate] }, async (request: any, reply: any) => {
     const { p = '/' } = request.query as { p: string };
     const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
     if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
@@ -27,7 +27,7 @@ export default function registerExtensions(fastify: any, ALLOWED_ROOT: string) {
     }
   });
 
-  fastify.get('/api/files/search', { preValidation: [(fastify as any).authenticate] }, async (request, reply) => {
+  fastify.get('/api/files/search', { preValidation: [fastify.authenticate] }, async (request: any, reply: any) => {
     const { p = '/', q = '' } = request.query as { p: string, q: string };
     if (!q || q.length < 2) return { results: [] };
     

@@ -10,7 +10,7 @@ export default function TasksApp() {
 
   const fetchProcesses = async () => {
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/processes`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch processes');
       setProcesses(await res.json());
@@ -29,7 +29,7 @@ export default function TasksApp() {
   const killProcess = async (pid: number) => {
     try {
       setStatus(`Killing PID ${pid}...`);
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/processes/kill`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

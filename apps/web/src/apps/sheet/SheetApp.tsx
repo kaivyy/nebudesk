@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, BarChart2 } from 'lucide-react';
 
-const BASE = () => `http://${window.location.hostname}:3001`;
+const BASE = () => `http://${window.location.hostname}:3030`;
 const COLS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const ROWS = Array.from({ length: 50 }, (_, i) => i + 1);
 

@@ -8,7 +8,7 @@ export default function SystemApp() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const baseUrl = `http://${window.location.hostname}:3001`;
+        const baseUrl = `http://${window.location.hostname}:3030`;
         if (activeTab === 'overview') {
           const res = await fetch(`${baseUrl}/api/system`, { credentials: 'include' });
           if (res.ok) setStats(await res.json());

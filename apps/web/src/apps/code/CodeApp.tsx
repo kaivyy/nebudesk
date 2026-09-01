@@ -26,7 +26,7 @@ function FileTreeNode({
   useEffect(() => {
     if (isDir && isExpanded && children.length === 0) {
       setLoading(true);
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       fetch(`${baseUrl}/api/files?p=${encodeURIComponent(path)}`, { credentials: 'include' })
         .then(res => res.json())
         .then(data => {
@@ -170,7 +170,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   // Load root workspace
   const loadWorkspace = async () => {
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/files?p=${encodeURIComponent(workspace)}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
@@ -219,7 +219,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     
     setLoading(true);
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/files/content?p=${encodeURIComponent(path)}`, { credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load');
@@ -258,7 +258,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     
     setStatus(`Saving ${path.split('/').pop()}...`);
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/files/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -297,7 +297,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     if (action === 'delete') {
       if (!confirm(`Are you sure you want to delete ${path}?`)) return;
       try {
-        const baseUrl = `http://${window.location.hostname}:3001`;
+        const baseUrl = `http://${window.location.hostname}:3030`;
         await fetch(`${baseUrl}/api/files?p=${encodeURIComponent(path)}`, { 
           method: 'DELETE', credentials: 'include' 
         });
@@ -440,7 +440,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 if (q.length < 2) return;
                 setStatus('Searching...');
                 try {
-                  const baseUrl = `http://${window.location.hostname}:3001`;
+                  const baseUrl = `http://${window.location.hostname}:3030`;
                   const res = await fetch(`${baseUrl}/api/files/search?p=${encodeURIComponent(workspace)}&q=${encodeURIComponent(q)}`, { credentials: 'include' });
                   const data = await res.json();
                   setSearchResults(data.results);
@@ -467,7 +467,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             onClick={async () => {
               setStatus('Checking Git status...');
               try {
-                const baseUrl = `http://${window.location.hostname}:3001`;
+                const baseUrl = `http://${window.location.hostname}:3030`;
                 const res = await fetch(`${baseUrl}/api/git/status?p=${encodeURIComponent(workspace)}`, { credentials: 'include' });
                 const data = await res.json();
                 if (data.notRepo) {

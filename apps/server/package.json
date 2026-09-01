@@ -22,6 +22,7 @@
     "systeminformation": "^5.33.6"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/dockerode": "^4.0.1",
     "@types/node": "^26.4.0",
     "tsx": "^4.23.13",

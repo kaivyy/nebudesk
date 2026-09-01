@@ -69,7 +69,7 @@ cd $DIR/apps/server
 pm2 start "npx tsx src/index.ts" --name nebudesk-backend --cwd "$DIR/apps/server"
 
 cd $DIR/apps/web
-pm2 serve dist 8080 --name nebudesk-frontend --spa --cwd "$DIR/apps/web"
+pm2 serve dist 5050 --name nebudesk-frontend --spa --cwd "$DIR/apps/web"
 
 pm2 save
 env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root || true
@@ -79,6 +79,6 @@ echo "✅ NebuDesk Installation Complete! ✅"
 echo "========================================="
 echo "Important Next Steps:"
 echo "1. Run 'sudo tailscale up' to connect this server."
-echo "2. Access securely via: http://100.x.x.x:8080"
+echo "2. Access securely via: http://100.x.x.x:5050"
 echo "3. Go to Discovery -> Adopt 'nebudesk-frontend' for a public domain."
 echo ""

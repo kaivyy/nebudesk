@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Server, Globe, ShieldCheck, Box, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings, Play, Square, RotateCw, FileText, X, HelpCircle, Info, ExternalLink as ExtLink } from 'lucide-react';
 
-const BASE = () => `http://${window.location.hostname}:3001`;
+const BASE = () => `http://${window.location.hostname}:3030`;
 
 export default function AppsApp() {
   const [activeTab, setActiveTab] = useState<'managed' | 'discovery' | 'settings'>('managed');

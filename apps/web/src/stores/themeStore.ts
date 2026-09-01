@@ -11,7 +11,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
   wallpaper: 'default',
   fetchTheme: async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:3001/api/desktop`, { credentials: 'include' });
+      const res = await fetch(`http://${window.location.hostname}:3030/api/desktop`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         set({ theme: data.theme || 'light', wallpaper: data.wallpaper || 'default' });

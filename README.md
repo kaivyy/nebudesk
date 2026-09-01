@@ -43,7 +43,7 @@ sudo ./install.sh
 
 **After Installation:**
 1. Run `sudo tailscale up` to securely link your server to your devices.
-2. Open your browser and navigate to `http://100.x.x.x:8080` *(replace with your VPS Tailscale IP)*.
+2. Open your browser and navigate to `http://100.x.x.x:5050` *(replace with your VPS Tailscale IP)*.
 3. Open **App Manager > Discovery** to start adopting your internal apps!
 
 ---
@@ -54,7 +54,7 @@ NebuDesk is built with the philosophy of **"Observe and Route"**. We don't modif
 
 ### 1. The Tailscale + UFW Shield
 By default, the installer activates UFW and **closes all ports** except `80` (HTTP) and `443` (HTTPS). 
-However, it injects a special rule: `ufw allow in on tailscale0`. This means NebuDesk itself (running on port `8080`) is completely invisible to the public internet, but instantly accessible via your private VPN!
+However, it injects a special rule: `ufw allow in on tailscale0`. This means NebuDesk itself (running on port `5050`) is completely invisible to the public internet, but instantly accessible via your private VPN!
 
 ### 2. Beware of the "Docker Trap" 🐳
 If you deploy your own applications via Docker Compose, remember that **Docker automatically bypasses UFW rules** if you publish ports publicly.

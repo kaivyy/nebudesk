@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Plus, Trash2, Type } from 'lucide-react';
 
-const BASE = () => `http://${window.location.hostname}:3001`;
+const BASE = () => `http://${window.location.hostname}:3030`;
 
 export default function DocsApp({ initialPath }: { initialPath?: string }) {
   const [docs, setDocs] = useState<any[]>([]);

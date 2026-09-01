@@ -3,9 +3,9 @@ import { promisify } from 'util';
 
 const db = new sqlite3.Database('./dev.db');
 
-export const dbRun = promisify(db.run.bind(db));
-export const dbGet = promisify(db.get.bind(db));
-export const dbAll = promisify(db.all.bind(db));
+export const dbRun = promisify(db.run.bind(db)) as any;
+export const dbGet = promisify(db.get.bind(db)) as any;
+export const dbAll = promisify(db.all.bind(db)) as any;
 
 export async function initDb() {
   await dbRun(`

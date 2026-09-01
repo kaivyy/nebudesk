@@ -10,7 +10,7 @@ function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch(`http://${window.location.hostname}:3001/api/desktop`, { credentials: 'include' });
+        const res = await fetch(`http://${window.location.hostname}:3030/api/desktop`, { credentials: 'include' });
         if (res.ok) {
           setIsAuthenticated(true);
           const state = await res.json();

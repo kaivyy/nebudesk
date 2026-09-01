@@ -37,7 +37,7 @@ export default function MenuBar() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`http://${window.location.hostname}:3001/api/auth/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`http://${window.location.hostname}:3030/api/auth/logout`, { method: 'POST', credentials: 'include' });
       window.location.reload();
     } catch(e) {}
   };

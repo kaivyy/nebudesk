@@ -502,7 +502,7 @@ fastify.delete('/api/docs/:id', { preValidation: [fastify.authenticate] }, async
   return { success: true };
 });
 
-fastify.listen({ port: 3001, host: '0.0.0.0' }, (err, address) => {
+fastify.listen({ port: 3030, host: '0.0.0.0' }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);

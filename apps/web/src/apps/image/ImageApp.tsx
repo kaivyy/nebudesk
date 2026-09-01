@@ -11,7 +11,7 @@ export default function ImageApp({ initialPath = '' }: { initialPath?: string })
     if (!p) return;
     setError('');
     try {
-      const baseUrl = `http://${window.location.hostname}:3001`;
+      const baseUrl = `http://${window.location.hostname}:3030`;
       const res = await fetch(`${baseUrl}/api/files/download?p=${encodeURIComponent(p)}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load image');
       const blob = await res.blob();

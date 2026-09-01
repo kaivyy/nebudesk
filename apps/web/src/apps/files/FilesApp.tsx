@@ -79,7 +79,7 @@ export default function FilesApp() {
   const [renameVal, setRenameVal] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const BASE = `http://${window.location.hostname}:3001`;
+  const BASE = `http://${window.location.hostname}:3030`;
 
   const loadFiles = async (dir: string) => {
     try {

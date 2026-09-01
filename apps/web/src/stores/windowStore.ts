@@ -90,7 +90,7 @@ useWindowStore.subscribe((state) => {
       // Don't save if it's the initial empty state load
       if (state.windows.length === 0 && useWindowStore.getState().highestZIndex === 0) return;
       
-      fetch(`http://${window.location.hostname}:3001/api/desktop`, {
+      fetch(`http://${window.location.hostname}:3030/api/desktop`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -18,7 +18,7 @@ export default function TerminalApp({ winId }: { winId: string }) {
     term.open(terminalRef.current);
     fitAddon.fit();
 
-    const wsUrl = `ws://${window.location.hostname}:3001/ws/terminal?termId=${encodeURIComponent(winId)}`;
+    const wsUrl = `ws://${window.location.hostname}:3030/ws/terminal?termId=${encodeURIComponent(winId)}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

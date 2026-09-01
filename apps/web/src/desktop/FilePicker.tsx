@@ -22,7 +22,7 @@ export default function FilePicker({
     setLoading(true);
     setError('');
     setSelectedFile(null); // reset selection on dir change
-    const baseUrl = `http://${window.location.hostname}:3001`;
+    const baseUrl = `http://${window.location.hostname}:3030`;
     fetch(`${baseUrl}/api/files?p=${encodeURIComponent(currentPath)}`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
