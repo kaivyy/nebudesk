@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Server, Globe, ShieldCheck, Box, Activity, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings } from 'lucide-react';
+import { Server, Globe, ShieldCheck, Box, Plus, RefreshCw, Trash2, Save, ExternalLink, Settings } from 'lucide-react';
 
 const BASE = () => `http://${window.location.hostname}:3001`;
 
@@ -7,6 +7,7 @@ export default function AppsApp() {
   const [activeTab, setActiveTab] = useState<'managed' | 'discovery' | 'settings'>('managed');
   const [apps, setApps] = useState<any[]>([]);
   const [dockerContainers, setDockerContainers] = useState<any[]>([]);
+  const [pm2Apps, setPm2Apps] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingApp, setEditingApp] = useState<any>(null);
   
@@ -18,15 +19,20 @@ export default function AppsApp() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [appRes, dockerRes, setRes] = await Promise.all([
+      const [appRes, dockerRes, pm2Res, setRes] = await Promise.all([
         fetch(`${BASE()}/api/applications`, { credentials: 'include' }),
         fetch(`${BASE()}/api/docker/containers`, { credentials: 'include' }).catch(() => null),
+        fetch(`${BASE()}/api/pm2/apps`, { credentials: 'include' }).catch(() => null),
         fetch(`${BASE()}/api/settings`, { credentials: 'include' }).catch(() => null)
       ]);
       if (appRes.ok) setApps(await appRes.json());
       if (dockerRes && dockerRes.ok) {
         const d = await dockerRes.json();
         setDockerContainers(Array.isArray(d) ? d : []);
+      }
+      if (pm2Res && pm2Res.ok) {
+        const p = await pm2Res.json();
+        setPm2Apps(Array.isArray(p) ? p : []);
       }
       if (setRes && setRes.ok) {
         const s = await setRes.json();
@@ -77,6 +83,20 @@ export default function AppsApp() {
     });
     setSavingSettings(false);
     alert('Settings saved successfully!');
+  };
+
+  const adoptPm2Container = (p: any) => {
+    setEditingApp({
+      name: p.name,
+      runtime: 'pm2',
+      identifier: p.name,
+      internalHost: '127.0.0.1',
+      internalPort: 8080,
+      publicDomain: p.name.toLowerCase() + '.example.com',
+      proxyEnabled: 0,
+      cfEnabled: 0
+    });
+    setActiveTab('managed');
   };
 
   const adoptContainer = (c: any) => {
@@ -216,6 +236,45 @@ export default function AppsApp() {
           </div>
         ) : activeTab === 'discovery' ? (
           <div>
+            
+            <h3 className="font-semibold text-gray-700 mb-3 mt-6 flex items-center"><Box size={16} className="mr-2" /> Running PM2 Apps</h3>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                    <th className="py-2 px-4 font-medium">Process Name</th>
+                    <th className="py-2 px-4 font-medium">Memory</th>
+                    <th className="py-2 px-4 font-medium">Status</th>
+                    <th className="py-2 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pm2Apps.map(p => {
+                    const isManaged = apps.some(a => a.identifier === p.name);
+                    return (
+                      <tr key={p.pm_id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-2 px-4 font-medium text-gray-800">{p.name}</td>
+                        <td className="py-2 px-4 text-gray-500 font-mono text-xs">{((p.monit?.memory || 0) / 1024 / 1024).toFixed(1)} MB</td>
+                        <td className="py-2 px-4">
+                          <span className={`px-2 py-0.5 ${p.pm2_env?.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} text-[10px] font-bold uppercase rounded-full`}>{p.pm2_env?.status}</span>
+                        </td>
+                        <td className="py-2 px-4 text-right">
+                          {isManaged ? (
+                            <span className="text-xs text-gray-400 font-medium italic">Managed</span>
+                          ) : (
+                            <button onClick={() => adoptPm2Container(p)} className="text-blue-600 hover:text-blue-800 font-medium text-xs">Adopt</button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {pm2Apps.length === 0 && (
+                    <tr><td colSpan={4} className="py-4 px-4 text-center text-gray-500">No PM2 apps found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
             <h3 className="font-semibold text-gray-700 mb-3 flex items-center"><Box size={16} className="mr-2" /> Running Docker Containers</h3>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <table className="w-full text-sm text-left">
@@ -259,13 +318,7 @@ export default function AppsApp() {
               </table>
             </div>
             
-            <div className="mt-6 p-4 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200 flex items-start">
-              <Activity size={20} className="mr-3 shrink-0 mt-0.5 text-yellow-600" />
-              <div>
-                <p className="font-semibold text-sm">Systemd & PM2 Discovery Coming Soon</p>
-                <p className="text-xs mt-1">Currently showing only active Docker containers. You can manually add Systemd/PM2 apps via the "Add App" button.</p>
-              </div>
-            </div>
+            
           </div>
         ) : (
           <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">

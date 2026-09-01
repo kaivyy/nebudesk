@@ -265,16 +265,20 @@ fastify.post('/api/processes/kill', { preValidation: [fastify.authenticate] }, a
 });
 
 
+fastify.get('/api/pm2/apps', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  try {
+    const { execSync } = require('child_process');
+    const out = execSync('pm2 jlist', { encoding: 'utf-8' });
+    return JSON.parse(out);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const containers = await docker.listContainers({ all: true });
-    return containers.map(c => ({
-      id: c.Id,
-      name: c.Names[0].replace(/^\//, ''),
-      image: c.Image,
-      state: c.State,
-      status: c.Status
-    }));
+    return containers;
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
