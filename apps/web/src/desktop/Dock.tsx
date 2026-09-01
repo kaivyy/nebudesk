@@ -18,6 +18,13 @@ export default function Dock() {
         className="w-12 h-12 bg-black rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
         💻
       </button>
+      <button 
+        onClick={() => openWindow({
+          appId: 'system', title: 'System Monitor', x: 200, y: 100, width: 700, height: 500, minWidth: 500, minHeight: 400, minimized: false, maximized: false
+        })}
+        className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center text-2xl hover:scale-110 transition-transform">
+        📊
+      </button>
     </div>
   );
 }

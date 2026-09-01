@@ -3,6 +3,7 @@ import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
 import TerminalApp from '../apps/terminal/TerminalApp';
+import SystemApp from '../apps/system/SystemApp';
 
 export default function Desktop() {
   const windows = useWindowStore(state => state.windows);
@@ -23,6 +24,7 @@ export default function Desktop() {
             <div className="flex-1 overflow-hidden relative text-black">
               {win.appId === 'files' && <FilesApp />}
               {win.appId === 'terminal' && <TerminalApp />}
+              {win.appId === 'system' && <SystemApp />}
             </div>
           </div>
         ))}
