@@ -5,6 +5,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import pty from 'node-pty';
 import si from 'systeminformation';
+import Docker from 'dockerode';
+
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { origin: '*' });
@@ -118,6 +121,21 @@ fastify.get('/api/processes', async (request, reply) => {
       user: p.user,
       state: p.state
     })).slice(0, 100);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
+fastify.get('/api/docker/containers', async (request, reply) => {
+  try {
+    const containers = await docker.listContainers({ all: true });
+    return containers.map(c => ({
+      id: c.Id,
+      name: c.Names[0].replace(/^\//, ''),
+      image: c.Image,
+      state: c.State,
+      status: c.Status
+    }));
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
