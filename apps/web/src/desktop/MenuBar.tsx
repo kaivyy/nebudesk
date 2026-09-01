@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
-import { Apple } from 'lucide-react';
+import { Apple, Wifi, BatteryFull, Search, SlidersHorizontal } from 'lucide-react';
 
 export default function MenuBar() {
   const { windows, openWindow, closeWindow, bringToFront } = useWindowStore();
@@ -239,13 +239,29 @@ export default function MenuBar() {
         </div>
       </div>
       
-      <div className="flex items-center space-x-4 px-2">
-        <span className="cursor-default hover:text-white/80 transition-colors">
-          {time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-        </span>
-        <span className="cursor-default font-medium">
-          {time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-        </span>
+      <div className="flex items-center space-x-4 pr-3 h-full">
+        {/* System Tray Icons */}
+        <div className="flex items-center space-x-3 text-white/90">
+          <button className="hover:text-white transition-colors" title="Spotlight Search">
+            <Search size={14} strokeWidth={2.5} />
+          </button>
+          <button className="hover:text-white transition-colors" title="Control Center">
+            <SlidersHorizontal size={14} strokeWidth={2.5} />
+          </button>
+          <button className="hover:text-white transition-colors" title="Wi-Fi">
+            <Wifi size={16} strokeWidth={2.5} />
+          </button>
+          <button className="flex items-center hover:text-white transition-colors" title="Battery">
+            <BatteryFull size={18} strokeWidth={2} className="opacity-90" />
+            <span className="text-[11px] font-bold ml-0.5">100%</span>
+          </button>
+        </div>
+        
+        {/* Date & Time */}
+        <div className="flex items-center space-x-2 cursor-default hover:bg-white/20 px-2 h-full rounded transition-colors active:bg-white/30">
+          <span>{time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          <span>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+        </div>
       </div>
     </div>
     </>
