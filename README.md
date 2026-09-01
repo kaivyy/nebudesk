@@ -44,7 +44,8 @@ sudo ./install.sh
 **After Installation:**
 1. Run `sudo tailscale up` to securely link your server to your devices.
 2. Open your browser and navigate to `http://100.x.x.x:5050` *(replace with your VPS Tailscale IP)*.
-3. Open **App Manager > Discovery** to start adopting your internal apps!
+3. Login using the default credentials: **Username:** `admin` | **Password:** `admin`
+4. Open **App Manager > Discovery** to start adopting your internal apps!
 
 ---
 

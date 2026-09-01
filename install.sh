@@ -79,6 +79,7 @@ echo "✅ NebuDesk Installation Complete! ✅"
 echo "========================================="
 echo "Important Next Steps:"
 echo "1. Run 'sudo tailscale up' to connect this server."
-echo "2. Access securely via: http://100.x.x.x:5050"
+echo "2. Access securely via: `http://100.x.x.x:5050`
+3. Login using default credentials: **Username:** `admin` | **Password:** `admin`"
 echo "3. Go to Discovery -> Adopt 'nebudesk-frontend' for a public domain."
 echo ""
