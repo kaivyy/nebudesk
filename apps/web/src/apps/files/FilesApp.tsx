@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  Folder, File, ChevronUp, Search, Trash2, 
+  Folder, File, Search, Trash2, 
   FolderPlus, FilePlus, Home, HardDrive, Settings,
-  AlignJustify, Grid, LayoutGrid
+  AlignJustify, Grid, LayoutGrid, ChevronLeft, ChevronRight, Filter, Share
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -124,50 +124,65 @@ export default function FilesApp() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Toolbar */}
-        <div className="h-14 bg-white/90 backdrop-blur-md border-b border-gray-200 flex items-center px-4 justify-between shrink-0">
+        {/* Unified macOS Toolbar */}
+        <div className="h-14 bg-gradient-to-b from-gray-50 to-gray-100/80 backdrop-blur-xl border-b border-gray-200/50 flex items-center px-4 shrink-0 nebudesk-drag-region">
           
-          {/* Left: Navigation */}
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 text-gray-500">
-              <button onClick={navigateUp} className="p-1 rounded-md hover:bg-gray-100 transition-colors" title="Up">
-                <ChevronUp size={20} />
-              </button>
-            </div>
-            <div className="font-semibold text-gray-700 truncate max-w-xs">
-              {currentPath}
-            </div>
+          {/* Left spacer for absolute traffic lights in Window.tsx */}
+          <div className="w-[60px] shrink-0"></div>
+
+          {/* Navigation Controls (Back/Forward) */}
+          <div className="flex items-center space-x-1 mr-4 shrink-0 nebudesk-no-drag">
+            <button onClick={navigateUp} className="p-1 rounded-md hover:bg-gray-200/80 transition-colors text-gray-600 disabled:opacity-30" disabled={currentPath === '/'} title="Back">
+              <ChevronLeft size={18} />
+            </button>
+            <button disabled className="p-1 rounded-md hover:bg-gray-200/80 transition-colors text-gray-600 opacity-30" title="Forward">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Title / Location (flex-1 to push right tools) */}
+          <div className="flex-1 font-semibold text-gray-700 text-[13px] truncate mr-4 text-center">
+            {currentPath.split('/').pop() || 'ROOT'}
           </div>
 
           {/* Right: Actions & Search */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center bg-gray-100 rounded-md p-1 border border-transparent focus-within:border-gray-300 focus-within:bg-white transition-all shadow-sm">
-              <Search size={16} className="text-gray-400 ml-1" />
+          <div className="flex items-center space-x-3 shrink-0 nebudesk-no-drag">
+            {/* View Mode Segmented Control */}
+            <div className="flex items-center bg-gray-200/50 rounded p-0.5 border border-gray-200/50 text-gray-600 shadow-sm">
+              <button onClick={() => setViewMode('grid')} className={`p-1 rounded-sm ${viewMode === 'grid' ? 'bg-white shadow-sm text-black' : 'hover:bg-gray-200/50'}`} title="Grid View">
+                <Grid size={15} />
+              </button>
+              <button onClick={() => setViewMode('list')} className={`p-1 rounded-sm ${viewMode === 'list' ? 'bg-white shadow-sm text-black' : 'hover:bg-gray-200/50'}`} title="List View">
+                <AlignJustify size={15} />
+              </button>
+            </div>
+
+            {/* Sort / Share / Actions */}
+            <div className="flex items-center space-x-1">
+              <button className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="Sort">
+                <Filter size={16} />
+              </button>
+              <button className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="Share">
+                <Share size={16} />
+              </button>
+              <button onClick={handleCreateFolder} className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="New Folder">
+                <FolderPlus size={16} />
+              </button>
+              <button onClick={handleCreateFile} className="p-1.5 rounded-md hover:bg-gray-200/80 text-gray-600 transition-colors" title="New File">
+                <FilePlus size={16} />
+              </button>
+            </div>
+
+            {/* Search Box */}
+            <div className="flex items-center bg-white/70 rounded-md p-1 border border-gray-200 focus-within:border-blue-400 focus-within:bg-white transition-all shadow-sm w-48">
+              <Search size={14} className="text-gray-400 ml-1 shrink-0" />
               <input
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none w-40 text-sm px-2 text-gray-700 placeholder-gray-400"
+                className="bg-transparent border-none outline-none w-full text-[13px] px-2 text-gray-700 placeholder-gray-400"
               />
-            </div>
-
-            <div className="flex items-center space-x-1 border-l pl-3 border-gray-200 text-gray-600">
-              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="List View">
-                <AlignJustify size={16} />
-              </button>
-              <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md ${viewMode === 'grid' ? 'bg-gray-200' : 'hover:bg-gray-100'}`} title="Grid View">
-                <Grid size={16} />
-              </button>
-            </div>
-
-            <div className="flex items-center space-x-1 border-l pl-3 border-gray-200 text-gray-600">
-              <button onClick={handleCreateFolder} className="p-1.5 rounded-md hover:bg-gray-100" title="New Folder">
-                <FolderPlus size={16} />
-              </button>
-              <button onClick={handleCreateFile} className="p-1.5 rounded-md hover:bg-gray-100" title="New File">
-                <FilePlus size={16} />
-              </button>
             </div>
           </div>
         </div>
