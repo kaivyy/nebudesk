@@ -333,6 +333,21 @@ fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] },
   }
 });
 
+fastify.post('/api/docker/containers/:id/:action', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  try {
+    const { id, action } = request.params as { id: string; action: string };
+    const container = docker.getContainer(id);
+    if (action === 'start') await container.start();
+    else if (action === 'stop') await container.stop();
+    else if (action === 'restart') await container.restart();
+    else if (action === 'remove') await container.remove({ force: true });
+    else return reply.status(400).send({ error: 'Invalid action' });
+    return { success: true };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
+
 fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
     const { stdout } = await execAsync('systemctl list-units --type=service --all --output=json');
