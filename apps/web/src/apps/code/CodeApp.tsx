@@ -253,7 +253,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [activeActivity, setActiveActivity] = useState(() => localStorage.getItem('nebucode_activity') || 'explorer');
+  const [activeActivity, setActiveActivity] = useState<string | null>(() => localStorage.getItem('nebucode_activity') || 'explorer');
   const [sidebarWidth, setSidebarWidth] = useState(() => Number(localStorage.getItem('nebucode_sidebar')) || 256);
   const [showBottomPanel, setShowBottomPanel] = useState(() => localStorage.getItem('nebucode_terminal_open') === 'true');
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => Number(localStorage.getItem('nebucode_terminal_height')) || 250);
@@ -294,7 +294,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     }
   };
 
-  useEffect(() => { localStorage.setItem('nebucode_activity', activeActivity); }, [activeActivity]);
+  useEffect(() => { localStorage.setItem('nebucode_activity', activeActivity || ''); }, [activeActivity]);
   useEffect(() => { localStorage.setItem('nebucode_sidebar', sidebarWidth.toString()); }, [sidebarWidth]);
   useEffect(() => { localStorage.setItem('nebucode_terminal_open', showBottomPanel.toString()); }, [showBottomPanel]);
   useEffect(() => { localStorage.setItem('nebucode_terminal_height', bottomPanelHeight.toString()); }, [bottomPanelHeight]);
@@ -504,7 +504,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         {/* Mock Search / Command Palette in Titlebar */}
         <div className="flex-1 flex justify-center">
            <div className="nebudesk-no-drag bg-[#2d2d2d] text-gray-400 text-xs px-24 py-1.5 rounded flex items-center border border-[#3e3e42] shadow-inner cursor-pointer hover:bg-[#333333] transition-colors"
-                onClick={() => setActiveActivity('search')}
+                onClick={() => setActiveActivity(prev => prev === 'search' ? null : 'search')}
            >
              <Search size={14} className="mr-2" />
              {workspace.split('/').pop() || 'NebuCode'}
@@ -518,7 +518,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         {/* Activity Bar */}
         <div className="w-12 bg-[#333333] flex flex-col items-center py-2 space-y-4 shrink-0 border-r border-[#252526]">
         <button 
-          onClick={() => setActiveActivity('explorer')}
+          onClick={() => setActiveActivity(prev => prev === 'explorer' ? null : 'explorer')}
           className={`p-2 rounded-md ${activeActivity === 'explorer' ? 'text-white border-l-2 border-white' : 'text-gray-400 hover:text-gray-200'}`}
           title="Explorer"
         >
@@ -532,7 +532,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           <Search size={24} strokeWidth={1.5} />
         </button>
         <button 
-          onClick={() => setActiveActivity('git')}
+          onClick={() => setActiveActivity(prev => prev === 'git' ? null : 'git')}
           className={`p-2 rounded-md ${activeActivity === 'git' ? 'text-white border-l-2 border-white' : 'text-gray-400 hover:text-gray-200'}`}
           title="Source Control"
         >
@@ -544,6 +544,8 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         </button>
       </div>
 
+
+      {activeActivity && (<>
       {/* Sidebar (Explorer/Search/Git) */}
       <div style={{ width: sidebarWidth }} className="bg-[#252526] flex flex-col shrink-0 border-r border-[#1e1e1e] relative">
         
@@ -712,7 +714,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
 
       {/* Sidebar Resizer */}
       <div 
-        className="w-1 bg-transparent hover:bg-blue-500 cursor-col-resize shrink-0 z-10 -ml-[1px] relative transition-colors"
+        className="w-2 bg-transparent hover:bg-blue-500 cursor-col-resize shrink-0 z-10 -ml-[1px] relative transition-colors"
         onPointerDown={(e) => {
           e.preventDefault();
           const startX = e.clientX;
@@ -731,6 +733,8 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           document.addEventListener('pointercancel', onUp);
         }}
       />
+      </>)}
+
       {/* Editor Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
         {/* Tabs */}
