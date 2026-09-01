@@ -1,4 +1,10 @@
-import { useState, useEffect } from 'react';
+const fs = require('fs');
+let code = fs.readFileSync('apps/web/src/desktop/MenuBar.tsx', 'utf8');
+
+// We will replace the entire return statement inner content for the left side (menus).
+// But it's easier to just rewrite the whole file, since we want to keep it robust.
+
+const newCode = `import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
 
 export default function MenuBar() {
@@ -38,7 +44,7 @@ export default function MenuBar() {
           if (focusedWindow?.appId === 'files') {
             openWindow({ appId: 'files', title: 'Files', x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
           } else {
-            openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
+            openWindow({ appId: 'code', title: \`Code - \${p}\`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
           }
         }
       } 
@@ -50,7 +56,7 @@ export default function MenuBar() {
       detail: {
         initialPath: '/root',
         onSelect: (p: string) => {
-          openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, payload: { file: p } } as any, true);
+          openWindow({ appId: 'code', title: \`Code - \${p}\`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, payload: { file: p } } as any, true);
         }
       } 
     }));
@@ -59,25 +65,11 @@ export default function MenuBar() {
   const currentApp = focusedWindow ? focusedWindow.appId : 'finder';
   const currentTitle = focusedWindow ? focusedWindow.title.split(' - ')[0] : 'Finder';
 
-  interface MenuItem {
-    type?: 'separator';
-    label?: string;
-    shortcut?: string;
-    action?: () => void;
-    disabled?: boolean;
-  }
-  
-  interface MenuGroup {
-    id: string;
-    label: string;
-    items: MenuItem[];
-  }
-
   // Build dynamic menus
-  const dynamicMenus: MenuGroup[] = [];
+  const dynamicMenus = [];
 
   // 1. File Menu
-  const fileItems: MenuItem[] = [];
+  const fileItems = [];
   if (currentApp === 'code' || currentApp === 'files' || currentApp === 'finder' || currentApp === 'terminal') {
     fileItems.push({ label: 'New Window', shortcut: '⌘N', action: () => openWindow({ appId: currentApp === 'finder' ? 'files' : currentApp, title: currentTitle, x: 150 + Math.random()*30, y: 150 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true) });
   }
@@ -99,7 +91,7 @@ export default function MenuBar() {
 
   // 2. Edit Menu (Generic for most apps)
   if (['code', 'docs', 'sheet', 'slides', 'terminal', 'files', 'finder'].includes(currentApp)) {
-    const editItems: MenuItem[] = [
+    const editItems = [
       { label: 'Undo', shortcut: '⌘Z', action: () => document.execCommand('undo') },
       { label: 'Redo', shortcut: '⇧⌘Z', action: () => document.execCommand('redo') },
       { type: 'separator' },
@@ -130,7 +122,7 @@ export default function MenuBar() {
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('apple')}
-            className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === 'apple' ? 'bg-white/20' : ''}`}
+            className={\`px-3 h-full flex items-center hover:bg-white/20 transition-colors \${activeMenu === 'apple' ? 'bg-white/20' : ''}\`}
           >
             <span className="text-lg leading-none mt-[-2px]"></span>
           </button>
@@ -152,7 +144,7 @@ export default function MenuBar() {
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('app')}
-            className={`px-3 h-full flex items-center font-bold hover:bg-white/20 transition-colors ${activeMenu === 'app' ? 'bg-white/20' : ''}`}
+            className={\`px-3 h-full flex items-center font-bold hover:bg-white/20 transition-colors \${activeMenu === 'app' ? 'bg-white/20' : ''}\`}
           >
             {currentApp === 'code' ? 'NebuCode' : (focusedWindow?.title?.split(' - ')[0] || 'Finder')}
           </button>
@@ -172,7 +164,7 @@ export default function MenuBar() {
           <div key={menu.id} className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
             <button 
               onClick={() => toggleMenu(menu.id)}
-              className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === menu.id ? 'bg-white/20' : ''}`}
+              className={\`px-3 h-full flex items-center hover:bg-white/20 transition-colors \${activeMenu === menu.id ? 'bg-white/20' : ''}\`}
             >
               {menu.label}
             </button>
@@ -185,7 +177,7 @@ export default function MenuBar() {
                   return (
                     <button 
                       key={idx}
-                      onClick={() => { if (item.action) handleAction(item.action); }} 
+                      onClick={() => handleAction(item.action)} 
                       disabled={item.disabled}
                       className="w-full text-left px-4 py-1.5 flex justify-between hover:bg-blue-500 hover:text-white disabled:text-gray-400 disabled:hover:bg-transparent group"
                     >
@@ -203,7 +195,7 @@ export default function MenuBar() {
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('window')}
-            className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === 'window' ? 'bg-white/20' : ''}`}
+            className={\`px-3 h-full flex items-center hover:bg-white/20 transition-colors \${activeMenu === 'window' ? 'bg-white/20' : ''}\`}
           >
             Window
           </button>
@@ -243,3 +235,7 @@ export default function MenuBar() {
     </>
   );
 }
+`;
+
+fs.writeFileSync('apps/web/src/desktop/MenuBar.tsx', newCode);
+console.log('done!');
