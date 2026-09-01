@@ -26,34 +26,40 @@ function FileTreeNode({
     const [loading, setLoading] = useState(false);
   const timerRef = useRef<any>(null);
 
-  const handleTouchStart = (e: any) => {
-    const touch = e.touches[0];
+  const ignoreClickRef = useRef(false);
+
+  const handlePointerDown = (e: any) => {
+    if (e.button !== 0) return; // Only care about primary click/touch
+    
     timerRef.current = setTimeout(() => {
       if (onContextMenu) {
         if (navigator.vibrate) navigator.vibrate(50);
-        onContextMenu({ preventDefault: ()=>{}, stopPropagation: ()=>{}, clientX: touch.clientX, clientY: touch.clientY }, path, isDir);
+        onContextMenu({ preventDefault: ()=>{}, stopPropagation: ()=>{}, clientX: e.clientX, clientY: e.clientY }, path, isDir);
         timerRef.current = null;
+        ignoreClickRef.current = true; // Block the upcoming click
       }
     }, 600);
   };
 
-  const handleTouchEndOrMove = () => {
+  const handlePointerUpOrMove = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
   };
 
-  const handleTouchEnd = (e: any) => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    } else {
-      // If timer is null, it means the timer ALREADY fired (long press happened).
-      // We must prevent the synthetic click from firing and hitting the backdrop!
+  const handleClick = (e: any) => {
+    if (ignoreClickRef.current) {
+      ignoreClickRef.current = false;
       e.preventDefault();
+      e.stopPropagation();
+      return;
     }
+    isDir ? toggleExpand(path) : onSelectFile(path);
   };
+
+
+
 
 
 
@@ -89,11 +95,12 @@ function FileTreeNode({
       <div 
         className="flex items-center py-1 hover:bg-[#2a2d2e] cursor-pointer text-gray-300 group select-none [-webkit-touch-callout:none]"
         style={{ paddingLeft: `${level * 12 + 8}px` }}
-        onClick={() => isDir ? toggleExpand(path) : onSelectFile(path)}
+        onClick={handleClick}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if(onContextMenu) onContextMenu(e, path, isDir); }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchMove={handleTouchEndOrMove}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUpOrMove}
+        onPointerMove={handlePointerUpOrMove}
+        onPointerCancel={handlePointerUpOrMove}
       >
         <div className="w-4 h-4 mr-1 flex items-center justify-center">
           {isDir ? (
