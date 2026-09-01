@@ -190,6 +190,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [activeActivity, setActiveActivity] = useState('explorer');
+  const [sidebarWidth, setSidebarWidth] = useState(256);
 
   // New states for panels
   const [searchResults, setSearchResults] = useState<string[]>([]);
@@ -437,27 +438,18 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       </div>
 
       {/* Sidebar (Explorer/Search/Git) */}
-      <div className="w-64 bg-[#252526] flex flex-col shrink-0 border-r border-[#1e1e1e]">
-        <div className="h-9 px-4 flex items-center text-xs font-semibold tracking-wider text-gray-300">
-          {activeActivity === 'explorer' && 'EXPLORER'}
-          {activeActivity === 'search' && 'SEARCH'}
-          {activeActivity === 'git' && 'SOURCE CONTROL'}
-        </div>
+      <div style={{ width: sidebarWidth }} className="bg-[#252526] flex flex-col shrink-0 border-r border-[#1e1e1e] relative">
         
-        {/* Explorer Panel */}
-        <div className={`flex-1 overflow-y-auto outline-none pb-4 ${activeActivity === 'explorer' ? 'block' : 'hidden'}`}>
-          <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-default group">
-            <div className="flex items-center space-x-1 uppercase cursor-pointer" onClick={() => {
-              document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
-                detail: { initialPath: workspace, onSelect: (p: string) => setWorkspace(p) }
-              }));
-            }} title="Change Workspace Folder">
-              <ChevronDown size={14} />
-              <span className="truncate max-w-[90px]">{workspace.split('/').pop() || 'ROOT'}</span>
-            </div>
-            
-            {/* VSCode Style Actions */}
-            <div className="flex items-center space-x-1 pr-1">
+        <div className="h-9 px-4 flex items-center justify-between text-xs font-semibold tracking-wider text-gray-300">
+          <span className="truncate pr-2">
+            {activeActivity === 'explorer' && 'EXPLORER'}
+            {activeActivity === 'search' && 'SEARCH'}
+            {activeActivity === 'git' && 'SOURCE CONTROL'}
+          </span>
+          
+          {/* Moved Actions to EXPLORER header */}
+          {activeActivity === 'explorer' && sidebarWidth > 180 && (
+            <div className="flex items-center space-x-0.5">
               <button onClick={(e) => {
                 e.stopPropagation();
                 setPromptModal({ type: 'file', onSubmit: async (name: string) => {
@@ -492,6 +484,20 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 e.stopPropagation();
                 store.openWindow({ appId: 'terminal', payload: { cwd: workspace }, title: 'Terminal', x: 250, y: 200, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false } as any);
               }} title="Open Terminal" className="p-0.5 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"><TerminalSquare size={13} /></button>
+            </div>
+          )}
+        </div>
+        
+        {/* Explorer Panel */}
+        <div className={`flex-1 overflow-y-auto outline-none pb-4 ${activeActivity === 'explorer' ? 'block' : 'hidden'}`}>
+          <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-gray-400 hover:bg-[#2a2d2e] cursor-default group">
+            <div className="flex items-center space-x-1 uppercase cursor-pointer min-w-0" onClick={() => {
+              document.dispatchEvent(new CustomEvent('desktop:pick-folder', {
+                detail: { initialPath: workspace, onSelect: (p: string) => setWorkspace(p) }
+              }));
+            }} title="Change Workspace Folder">
+              <ChevronDown size={14} className="shrink-0" />
+              <span className="truncate">{workspace.split('/').pop() || 'ROOT'}</span>
             </div>
           </div>
           
@@ -584,6 +590,27 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
         </div>
       </div>
 
+      {/* Sidebar Resizer */}
+      <div 
+        className="w-1 bg-transparent hover:bg-blue-500 cursor-col-resize shrink-0 z-10 -ml-[1px] relative transition-colors"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          const startX = e.clientX;
+          const startW = sidebarWidth;
+          const onMove = (moveEvent: any) => {
+            const newW = Math.max(130, Math.min(800, startW + (moveEvent.clientX - startX)));
+            setSidebarWidth(newW);
+          };
+          const onUp = () => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            document.removeEventListener('pointercancel', onUp);
+          };
+          document.addEventListener('pointermove', onMove);
+          document.addEventListener('pointerup', onUp);
+          document.addEventListener('pointercancel', onUp);
+        }}
+      />
       {/* Editor Area */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
         {/* Tabs */}
