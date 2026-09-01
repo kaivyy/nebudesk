@@ -104,17 +104,47 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="h-14 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
-        <div className="w-[90px] shrink-0"></div>
+    <div className="h-full flex flex-row bg-white">
+      {/* Left Unified Sidebar & Chrome */}
+      {!initialPath && <div className="w-56 bg-gray-50 flex-shrink-0 flex flex-col border-r border-gray-200 nebudesk-drag-region h-full relative z-10">
+        {/* Traffic Light Spacer */}
+        <div className="h-14 shrink-0 pointer-events-none"></div>
+
+          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documents</span>
+            <button onClick={createDoc} className="p-1 hover:bg-gray-200 rounded" title="New Document"><Plus size={14} /></button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {docs.map(doc => (
+              <div key={doc.id} onClick={() => loadDoc(doc)} className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 group ${activeDoc?.id === doc.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''}`}>
+                <div className="flex items-center overflow-hidden">
+                  <Type size={12} className="mr-2 text-gray-400 shrink-0" />
+                  <span className="text-sm truncate text-gray-800">{doc.name}</span>
+                </div>
+                <button onClick={(e) => deleteDoc(doc.id, e)} className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 hover:text-red-500 rounded"><Trash2 size={11} /></button>
+              </div>
+            ))}
+            {docs.length === 0 && (
+              <div className="p-6 text-center">
+                <p className="text-gray-400 text-sm mb-3">No documents yet</p>
+                <button onClick={createDoc} className="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">Create Document</button>
+              </div>
+            )}
+          </div>
+        </div>}
+
+
+      {/* Right Main Area */}
+      <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
+        <div className="h-14 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
+        
         <div className="flex-1 text-center font-medium text-gray-800 pr-[90px]">
           {activeDoc ? activeDoc.name : 'NebuDocs'}
           {saving && <span className="ml-2 text-xs text-gray-400">Saving...</span>}
           {saved && <span className="ml-2 text-xs text-green-500">Saved</span>}
         </div>
       </div>
-
-      {/* Formatting Toolbar */}
+        {/* Formatting Toolbar */}
       {activeDoc && (
         <div className="border-b border-gray-200 bg-white px-4 py-1.5 flex items-center space-x-1 shrink-0">
           <button onMouseDown={(e) => { e.preventDefault(); fmt('bold'); }} className="p-1.5 hover:bg-gray-100 rounded" title="Bold"><Bold size={14} /></button>
@@ -141,33 +171,8 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        {!initialPath && <div className="w-52 bg-gray-50 border-r border-gray-200 flex flex-col">
-          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Documents</span>
-            <button onClick={createDoc} className="p-1 hover:bg-gray-200 rounded" title="New Document"><Plus size={14} /></button>
-          </div>
-          <div className="flex-1 overflow-auto">
-            {docs.map(doc => (
-              <div key={doc.id} onClick={() => loadDoc(doc)} className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-100 group ${activeDoc?.id === doc.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''}`}>
-                <div className="flex items-center overflow-hidden">
-                  <Type size={12} className="mr-2 text-gray-400 shrink-0" />
-                  <span className="text-sm truncate text-gray-800">{doc.name}</span>
-                </div>
-                <button onClick={(e) => deleteDoc(doc.id, e)} className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-100 hover:text-red-500 rounded"><Trash2 size={11} /></button>
-              </div>
-            ))}
-            {docs.length === 0 && (
-              <div className="p-6 text-center">
-                <p className="text-gray-400 text-sm mb-3">No documents yet</p>
-                <button onClick={createDoc} className="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">Create Document</button>
-              </div>
-            )}
-          </div>
-        </div>}
-
-        {/* Editor */}
+      
+{/* Editor */}
         {activeDoc ? (
           <div className="flex-1 overflow-auto bg-gray-100 p-8">
             <div
