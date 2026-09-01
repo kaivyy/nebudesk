@@ -21,10 +21,12 @@ export default function Dock() {
 
   const apps = [
     { id: 'files', title: 'Files', emoji: '📁', color: 'bg-blue-500' },
+    { id: 'code', title: 'NebuCode', emoji: '📝', color: 'bg-blue-600' },
     { id: 'terminal', title: 'Terminal', emoji: '💻', color: 'bg-black' },
     { id: 'system', title: 'System Monitor', emoji: '📊', color: 'bg-gray-800' },
     { id: 'docker', title: 'Docker', emoji: '🐳', color: 'bg-blue-700' },
-    { id: 'services', title: 'Services', emoji: '⚙️', color: 'bg-red-600' }
+    { id: 'services', title: 'Services', emoji: '⚙️', color: 'bg-red-600' },
+    { id: 'settings', title: 'Settings', emoji: '⚙️', color: 'bg-gray-400' }
   ];
 
   return (
