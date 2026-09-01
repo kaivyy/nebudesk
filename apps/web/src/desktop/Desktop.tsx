@@ -14,7 +14,7 @@ import ImageApp from '../apps/image/ImageApp';
 import DocsApp from '../apps/docs/DocsApp';
 import SheetApp from '../apps/sheet/SheetApp';
 import SlidesApp from '../apps/slides/SlidesApp';
-import FolderPicker from './FolderPicker';
+import FilePicker from './FilePicker';
 import Window from './Window';
 import { useThemeStore } from '../stores/themeStore';
 
@@ -23,24 +23,38 @@ export default function Desktop() {
   useEffect(() => { fetchTheme(); }, []);
   const windows = useWindowStore(state => state.windows);
   
-  // Folder Picker State
-  const [pickerProps, setPickerProps] = useState<{ onSelect: (p: string) => void, onCancel: () => void, initialPath: string } | null>(null);
+  // Picker State
+  const [pickerProps, setPickerProps] = useState<{ onSelect: (p: string) => void, onCancel: () => void, initialPath: string, mode: 'file' | 'folder' } | null>(null);
 
   useEffect(() => {
     const handlePickFolder = (e: any) => {
       setPickerProps({
+        mode: 'folder',
         initialPath: e.detail.initialPath || '/root',
         onSelect: (path: string) => {
           if (e.detail.onSelect) e.detail.onSelect(path);
           setPickerProps(null);
         },
-        onCancel: () => {
+        onCancel: () => setPickerProps(null)
+      });
+    };
+    const handlePickFile = (e: any) => {
+      setPickerProps({
+        mode: 'file',
+        initialPath: e.detail.initialPath || '/root',
+        onSelect: (path: string) => {
+          if (e.detail.onSelect) e.detail.onSelect(path);
           setPickerProps(null);
-        }
+        },
+        onCancel: () => setPickerProps(null)
       });
     };
     document.addEventListener('desktop:pick-folder', handlePickFolder);
-    return () => document.removeEventListener('desktop:pick-folder', handlePickFolder);
+    document.addEventListener('desktop:pick-file', handlePickFile);
+    return () => {
+      document.removeEventListener('desktop:pick-folder', handlePickFolder);
+      document.removeEventListener('desktop:pick-file', handlePickFile);
+    };
   }, []);
   
   return (
@@ -49,7 +63,7 @@ export default function Desktop() {
       wallpaper === 'solid-gray' ? 'bg-gray-800' : 
       'bg-gradient-to-br from-blue-900 to-black'
     } ${theme === 'dark' ? 'dark' : ''}`}>
-      {pickerProps && <FolderPicker {...pickerProps} />}
+      {pickerProps && <FilePicker {...pickerProps} />}
       <MenuBar />
       <div className="flex-1 relative">
         {windows.map(win => (
