@@ -4,7 +4,7 @@ import {
   FolderPlus, FilePlus, Home, Code2, Image as ImageIcon,
   ChevronLeft, ChevronRight, LayoutGrid, FolderOpen,
   Presentation, Film, Music, Archive, Table2, Edit2, Copy, Download,
-  Clock, Users, AppWindow, ArrowDownCircle, Monitor, Cloud, HardDrive, List, MoreHorizontal
+  Clock, Monitor, HardDrive, List, MoreHorizontal
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -75,6 +75,7 @@ export default function FilesApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const [promptModal, setPromptModal] = useState<{type: 'folder' | 'file', onSubmit: (name: string) => void} | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -149,15 +150,19 @@ export default function FilesApp() {
     if (res.ok) loadFiles(currentPath);
   };
 
-  const handleCreateFolder = async () => {
-    const name = prompt('Folder name:');
-    if (!name?.trim()) return;
-    const res = await fetch(`${BASE}/api/files/folder`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p: currentPath, name })
+  const handleCreateFolder = () => {
+    setPromptModal({
+      type: 'folder',
+      onSubmit: async (name) => {
+        if (!name?.trim()) return;
+        const res = await fetch(`${BASE}/api/files/folder`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p: currentPath, name })
+        });
+        if (res.ok) loadFiles(currentPath);
+      }
     });
-    if (res.ok) loadFiles(currentPath);
   };
 
   const handleCreateFile = async () => {
@@ -262,19 +267,14 @@ export default function FilesApp() {
         {/* Sidebar */}
         <div className="w-52 bg-[#f3f3f3] bg-opacity-90 flex-shrink-0 flex flex-col border-r border-gray-200">
           <div className="flex-1 overflow-y-auto py-2 space-y-1">
-            <SidebarItem icon={Clock} label="Terbaru" path="/root" isActive={currentPath === '/root' && history.length === 1} />
-            <SidebarItem icon={Users} label="Dibagikan" path="/root" isActive={false} />
-            
-            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
-            <SidebarItem icon={AppWindow} label="Aplikasi" path="/root/Apps" isActive={currentPath === '/root/Apps'} />
-            <SidebarItem icon={ArrowDownCircle} label="Unduhan" path="/root/Downloads" isActive={currentPath === '/root/Downloads'} />
-            <SidebarItem icon={Monitor} label="Desktop" path="/root/Desktop" isActive={currentPath === '/root/Desktop'} />
-            <SidebarItem icon={FileText} label="Dokumen" path="/root/Documents" isActive={currentPath === '/root/Documents'} />
-
-            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Lokasi</div>
-            <SidebarItem icon={Cloud} label="NebuCloud" path="/root" isActive={currentPath === '/root'} />
+            <div className="mt-2 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
             <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
+            <SidebarItem icon={Monitor} label="NebuDesk" path="/root/nebudesk" isActive={currentPath === '/root/nebudesk'} />
+            
+            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sistem</div>
             <SidebarItem icon={HardDrive} label="System Root" path="/" isActive={currentPath === '/'} />
+            <SidebarItem icon={FolderOpen} label="Konfigurasi" path="/etc" isActive={currentPath === '/etc'} />
+            <SidebarItem icon={Clock} label="Server Logs" path="/var/log" isActive={currentPath === '/var/log'} />
           </div>
         </div>
 
@@ -386,6 +386,41 @@ export default function FilesApp() {
           )}
         </div>
       </div>
+
+            {/* Prompt Modal */}
+      {promptModal && (
+        <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-40 backdrop-blur-[1px]" onClick={() => setPromptModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-72 overflow-hidden border border-gray-200" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="font-semibold text-sm text-gray-800">{promptModal.type === 'folder' ? 'Create New Folder' : 'Create New File'}</h3>
+            </div>
+            <div className="p-4">
+              <input
+                autoFocus
+                type="text"
+                className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                placeholder={promptModal.type === 'folder' ? 'Folder name...' : 'File name...'}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    promptModal.onSubmit(e.currentTarget.value);
+                    setPromptModal(null);
+                  } else if (e.key === 'Escape') {
+                    setPromptModal(null);
+                  }
+                }}
+              />
+            </div>
+            <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t border-gray-100">
+              <button onClick={() => setPromptModal(null)} className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 rounded-md transition-colors">Cancel</button>
+              <button onClick={(e) => {
+                const input = e.currentTarget.parentElement?.previousElementSibling?.querySelector('input');
+                if (input?.value) promptModal.onSubmit(input.value);
+                setPromptModal(null);
+              }} className="px-3 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm">Create</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Context Menu */}
       {contextMenu && (

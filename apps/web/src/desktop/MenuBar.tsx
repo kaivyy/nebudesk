@@ -3,6 +3,7 @@ import { useWindowStore } from '../stores/windowStore';
 
 export default function MenuBar() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [aboutModal, setAboutModal] = useState(false);
   const { windows, openWindow, closeWindow, bringToFront } = useWindowStore();
   const [time, setTime] = useState(new Date());
   
@@ -43,6 +44,18 @@ export default function MenuBar() {
   };
 
   return (
+    <>
+      {aboutModal && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[9999] backdrop-blur-[1px]" onClick={() => setAboutModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-72 overflow-hidden border border-gray-200 text-center p-6" onClick={e => e.stopPropagation()}>
+            <img src="/icons/monitor.svg" alt="Logo" className="w-16 h-16 mx-auto mb-4 opacity-80" />
+            <h2 className="text-xl font-bold text-gray-900 mb-1">NebuDesk</h2>
+            <p className="text-xs text-gray-500 mb-4">Version 1.0 Alpha<br/>Web-based Headless Linux Desktop</p>
+            <p className="text-[11px] text-gray-400 mb-6">Built to make server administration peaceful again.</p>
+            <button onClick={() => setAboutModal(false)} className="px-6 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm">Close</button>
+          </div>
+        </div>
+      )}
     <div ref={menuRef} className="h-6 bg-[#000000]/60 backdrop-blur-md text-white/90 flex items-center px-4 text-[13px] justify-between shadow-sm z-[9999] font-medium tracking-wide">
       <div className="flex items-center space-x-1 h-full">
         {/* Apple/OS Menu */}
@@ -56,7 +69,7 @@ export default function MenuBar() {
           
           {activeMenu === 'os' && (
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20 overflow-hidden">
-              <button onClick={() => handleAction(() => alert('NebuDesk v1.0\nWeb-based Headless Linux Desktop'))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About NebuDesk</button>
+              <button onClick={() => handleAction(() => setAboutModal(true))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About NebuDesk</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings...</button>
               <button onClick={() => handleAction(() => openWindow({ appId: 'system', title: 'System Monitor', x: 220, y: 170, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Monitor...</button>
@@ -244,5 +257,6 @@ export default function MenuBar() {
         </span>
       </div>
     </div>
+    </>
   );
 }

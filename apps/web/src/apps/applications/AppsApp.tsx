@@ -5,6 +5,7 @@ const BASE = () => `http://${window.location.hostname}:3030`;
 
 export default function AppsApp() {
   const [activeTab, setActiveTab] = useState<'managed' | 'discovery' | 'settings'>('managed');
+  const [alertModal, setAlertModal] = useState<string | null>(null);
   const [apps, setApps] = useState<any[]>([]);
   const [dockerContainers, setDockerContainers] = useState<any[]>([]);
   const [pm2Apps, setPm2Apps] = useState<any[]>([]);
@@ -29,11 +30,11 @@ export default function AppsApp() {
       });
       if (!res.ok) {
         const err = await res.json();
-        alert('Action failed: ' + err.error);
+        setAlertModal('Action failed: ' + err.error);
       }
       fetchData();
     } catch (e: any) {
-      alert('Action failed: ' + e.message);
+      setAlertModal('Action failed: ' + e.message);
     }
   };
 
@@ -45,10 +46,10 @@ export default function AppsApp() {
         setViewingLogs({ name, logs: data.logs || 'No logs available.' });
       } else {
         const err = await res.json();
-        alert('Failed to fetch logs: ' + err.error);
+        setAlertModal('Failed to fetch logs: ' + err.error);
       }
     } catch (e: any) {
-      alert('Failed to fetch logs: ' + e.message);
+      setAlertModal('Failed to fetch logs: ' + e.message);
     }
   };
 
@@ -61,11 +62,11 @@ export default function AppsApp() {
       });
       if (!res.ok) {
         const err = await res.json();
-        alert('Action failed: ' + err.error);
+        setAlertModal('Action failed: ' + err.error);
       }
       fetchData();
     } catch (e: any) {
-      alert('Action failed: ' + e.message);
+      setAlertModal('Action failed: ' + e.message);
     }
   };
 
@@ -77,10 +78,10 @@ export default function AppsApp() {
         setViewingLogs({ name, logs: data.logs || 'No logs available.' });
       } else {
         const err = await res.json();
-        alert('Failed to fetch logs: ' + err.error);
+        setAlertModal('Failed to fetch logs: ' + err.error);
       }
     } catch (e: any) {
-      alert('Failed to fetch logs: ' + e.message);
+      setAlertModal('Failed to fetch logs: ' + e.message);
     }
   };
 
@@ -150,7 +151,7 @@ export default function AppsApp() {
       body: JSON.stringify({ key: 'CF_ZONE_ID', value: cfZone })
     });
     setSavingSettings(false);
-    alert('Settings saved successfully!');
+    setAlertModal('Settings saved successfully!');
   };
 
   const adoptPm2Container = (p: any) => {
@@ -510,6 +511,22 @@ export default function AppsApp() {
             </div>
             <div className="flex-1 bg-[#1e1e1e] p-4 overflow-auto font-mono text-xs text-green-400 whitespace-pre-wrap select-text">
               {viewingLogs.logs}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Alert Modal */}
+      {alertModal && (
+        <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-[100] backdrop-blur-[1px]" onClick={() => setAlertModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-80 overflow-hidden border border-gray-200" onClick={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-100 bg-red-50">
+              <h3 className="font-semibold text-sm text-red-700">Notice</h3>
+            </div>
+            <div className="p-4 text-sm text-gray-700 break-words">
+              {alertModal}
+            </div>
+            <div className="px-4 py-3 bg-gray-50 flex justify-end gap-2 border-t border-gray-100">
+              <button onClick={() => setAlertModal(null)} className="px-4 py-1.5 text-xs font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm">OK</button>
             </div>
           </div>
         </div>
