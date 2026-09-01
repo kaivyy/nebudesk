@@ -187,10 +187,10 @@ export default function SettingsApp() {
                   <div key={i}>
                     <div className="flex justify-between mb-1.5 items-center">
                       <span className="font-medium text-gray-900 truncate mr-2" title={disk.mount}>{disk.mount} <span className="text-gray-400 font-normal ml-1">({disk.type})</span></span>
-                      <span className="text-gray-500 font-medium">{formatBytes(disk.use, 1)} / {formatBytes(disk.size, 1)}</span>
+                      <span className="text-gray-500 font-medium">{formatBytes(disk.used, 1)} / {formatBytes(disk.size, 1)}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-[#0061e0] h-2.5 rounded-full" style={{ width: `${disk.use / disk.size * 100}%` }}></div>
+                      <div className="bg-[#0061e0] h-2.5 rounded-full" style={{ width: `${disk.use}%` }}></div>
                     </div>
                   </div>
                 ))}
