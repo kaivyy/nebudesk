@@ -19,7 +19,8 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { 
   origin: true,
-  credentials: true 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 });
 await fastify.register(websocket);
 await fastify.register(jwt, { secret: 'nebudesk-super-secret' });
