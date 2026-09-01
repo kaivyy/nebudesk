@@ -239,7 +239,11 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     return initialPath;
   };
 
-  const [workspace, setWorkspace] = useState(getInitialWorkspace());
+  const [workspace, setWorkspace] = useState(() => localStorage.getItem(`nebucode_workspace_${winId}`) || getInitialWorkspace());
+  
+  useEffect(() => {
+    localStorage.setItem(`nebucode_workspace_${winId}`, workspace);
+  }, [workspace, winId]);
   const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([workspace]));
   
