@@ -13,6 +13,7 @@
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@fastify/jwt": "^10.2.2",
+    "@fastify/multipart": "^10.1.1",
     "@fastify/websocket": "^11.3.0",
     "bcrypt": "^6.0.0",
     "dockerode": "^5.0.1",

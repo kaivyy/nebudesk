@@ -5,3 +5,12 @@ html, body, #root {
   margin: 0;
   overflow: hidden;
 }
+
+@keyframes window-open {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-window-open {
+  animation: window-open 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

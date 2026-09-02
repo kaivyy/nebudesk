@@ -3,7 +3,9 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import fs from 'fs/promises';
+import { createWriteStream } from 'fs';
 import path from 'path';
 import * as pty from 'node-pty';
 import si from 'systeminformation';
@@ -34,6 +36,7 @@ await fastify.register(cors, {
 await fastify.register(websocket);
 await fastify.register(jwt, { secret: 'nebudesk-super-secret' });
 await fastify.register(cookie);
+await fastify.register(fastifyMultipart, { limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB limit
 
 await initDb();
 
@@ -155,6 +158,25 @@ fastify.get('/api/files/download', { preValidation: [fastify.authenticate] }, as
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
   }
+});
+
+fastify.post('/api/files/upload', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const parts = request.parts();
+  let targetDir = '';
+  
+  for await (const part of parts) {
+    if (part.type === 'file') {
+      if (!targetDir) return reply.status(400).send({ error: 'Missing path field' });
+      const targetPath = path.join(targetDir, part.filename.replace(/\//g, ''));
+      if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+      await require('node:stream/promises').pipeline(part.file, createWriteStream(targetPath));
+    } else {
+      if (part.fieldname === 'p') {
+        targetDir = path.resolve(ALLOWED_ROOT, (part.value as string).replace(/^\//, ''));
+      }
+    }
+  }
+  return { success: true };
 });
 
 fastify.post('/api/files/folder', { preValidation: [fastify.authenticate] }, async (request, reply) => {

@@ -1,4 +1,4 @@
-const pty = require('node-pty');
+import * as pty from 'node-pty';
 const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', 'test_pty_1', '-c', '/root/nebudesk'], {
     name: 'xterm-color',
     cols: 80,
@@ -11,3 +11,4 @@ ptyProcess.onData((data) => {
 });
 ptyProcess.write('pwd\r');
 setTimeout(() => process.exit(0), 1000);
+//# sourceMappingURL=test_pty.js.map

@@ -4,7 +4,7 @@ import {
   FolderPlus, FilePlus, Home, Code2, Image as ImageIcon,
   ChevronLeft, ChevronRight, LayoutGrid, FolderOpen,
   Presentation, Film, Music, Archive, Table2, Edit2, Copy, Download,
-  Clock, Monitor, HardDrive, List, MoreHorizontal
+  Clock, Monitor, HardDrive, List, MoreHorizontal, Upload
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -180,6 +180,39 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
     });
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+  
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('p', currentPath);
+    formData.append('file', file);
+    
+    try {
+      const res = await fetch(`${BASE}/api/files/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Upload failed');
+      } else {
+        loadFiles(currentPath);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleRename = async () => {
     if (!renaming || !renameVal.trim() || renameVal === renaming) { setRenaming(null); return; }
     const oldPath = currentPath === '/' ? `/${renaming}` : `${currentPath}/${renaming}`;
@@ -270,6 +303,8 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
           <div className="flex items-center gap-0.5 sm:gap-1 text-gray-500 shrink-0">
             <button onClick={handleCreateFolder} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="New Folder"><FolderPlus size={18} /></button>
             <button onClick={handleCreateFile} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="New File"><FilePlus size={18} /></button>
+            <button onClick={handleUploadClick} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="Upload File"><Upload size={18} /></button>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
             <button className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md"><MoreHorizontal size={18} /></button>
           </div>
 
