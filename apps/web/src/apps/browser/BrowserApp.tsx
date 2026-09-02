@@ -131,11 +131,17 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    
     e.preventDefault();
     sendInput({ type: 'keydown', key: e.key, text: e.key.length === 1 ? e.key : '', code: e.code });
   };
 
   const handleKeyUp = (e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    
     sendInput({ type: 'keyup', key: e.key, code: e.code });
   };
 
