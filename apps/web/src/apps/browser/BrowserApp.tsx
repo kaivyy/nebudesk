@@ -18,7 +18,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [screenFrame, setScreenFrame] = useState<string>('');
   
   const [mobileText, setMobileText] = useState(" ");
-  const [keyboardPos, setKeyboardPos] = useState({ x: -100, y: -100 });
   const [autoKeyboard, setAutoKeyboard] = useState(true);
   
   const wsRef = useRef<WebSocket | null>(null);
@@ -169,8 +168,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const y = e.clientY - rect.top;
     
     if (autoKeyboard) {
-      setKeyboardPos({ x: e.clientX, y: e.clientY });
-      setTimeout(() => hiddenInputRef.current?.focus(), 10);
+      
+      hiddenInputRef.current?.focus();
     }
     
     sendInput({ type: 'mousemove', x, y });
@@ -187,7 +186,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const touch = e.touches[0];
     touchState.current = { startX: touch.clientX, startY: touch.clientY, x: touch.clientX, y: touch.clientY, scrolling: false };
     if (autoKeyboard) {
-      setKeyboardPos({ x: touch.clientX, y: touch.clientY });
+      
     }
   };
 
@@ -212,7 +211,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
     if (!touchState.current.scrolling) {
       if (autoKeyboard) {
-        setTimeout(() => hiddenInputRef.current?.focus(), 10);
+        hiddenInputRef.current?.focus();
       }
       const rect = e.currentTarget.getBoundingClientRect();
       const x = touchState.current.startX - rect.left;
@@ -310,7 +309,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             onClick={() => {
               const next = !autoKeyboard;
               setAutoKeyboard(next);
-              if (next) setTimeout(() => hiddenInputRef.current?.focus(), 10);
+              if (next) hiddenInputRef.current?.focus();
             }}
           >
             <Keyboard size={16} />
@@ -340,7 +339,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             type="text"
             value={mobileText}
             onChange={handleMobileInputChange}
-            style={{ position: 'fixed', top: keyboardPos.y, left: keyboardPos.x, width: 20, height: 20, opacity: 0.01, zIndex: 10, pointerEvents: 'none' }}
+            style={{ position: 'fixed', top: 0, left: 0, width: 20, height: 20, opacity: 0.01, zIndex: 10, pointerEvents: 'none' }}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
