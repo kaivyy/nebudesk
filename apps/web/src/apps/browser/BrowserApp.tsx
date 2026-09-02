@@ -14,6 +14,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [screenFrame, setScreenFrame] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   // WebSocket connection for Full Chromium Mode
   useEffect(() => {
@@ -112,6 +113,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   }, []);
 
   const handleScreenClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    // Focus the hidden input to trigger mobile keyboards
+    hiddenInputRef.current?.focus();
+
     const rect = e.currentTarget.getBoundingClientRect();
     const scaleX = 1280 / rect.width;
     const scaleY = 720 / rect.height;
@@ -132,15 +136,21 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.id !== 'mobile-keyboard-trap') return;
     
-    e.preventDefault();
+    if (target.id === 'mobile-keyboard-trap') {
+      // Don't preventDefault for Backspace on mobile so it can fire repeatedly, but we must prevent it for regular keys 
+      // otherwise mobile keyboards can behave erratically, though testing might be needed. For now let's just forward it.
+      if (e.key === 'Unidentified') return; // Mobile composition keys
+    } else {
+      e.preventDefault();
+    }
     sendInput({ type: 'keydown', key: e.key, text: e.key.length === 1 ? e.key : '', code: e.code });
   };
 
   const handleKeyUp = (e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.id !== 'mobile-keyboard-trap') return;
     
     sendInput({ type: 'keyup', key: e.key, code: e.code });
   };
@@ -211,6 +221,17 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       <div className="flex-1 flex flex-col relative bg-gray-50 overflow-hidden">
         {/* Browser View */}
         <div className={`w-full ${devMode ? 'h-1/2 border-b border-gray-300' : 'h-full'} relative`}>
+          {/* Mobile Keyboard Trap */}
+          <input
+            ref={hiddenInputRef}
+            id="mobile-keyboard-trap"
+            type="text"
+            className="absolute top-0 left-0 w-1 h-1 opacity-0 -z-10"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+          />
           {/* Screencast mode — real Chromium rendered frames */}
           <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden">
             {loading && !screenFrame && (
