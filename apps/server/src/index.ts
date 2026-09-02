@@ -524,6 +524,45 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
 registerExtensions(fastify, ALLOWED_ROOT);
 
 
+
+// Browser Proxy API
+fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { url } = request.query as { url: string };
+  if (!url) return reply.status(400).send({ error: 'URL is required' });
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      }
+    });
+    
+    let html = await res.text();
+    
+    // Inject <base> tag to fix relative assets
+    const baseTag = `<base href="${new URL(url).origin}">`;
+    if (html.includes('<head>')) {
+      html = html.replace('<head>', '<head>' + baseTag);
+    } else {
+      html = baseTag + html;
+    }
+
+    // Strip restrictive headers
+    reply.header('Content-Type', res.headers.get('content-type') || 'text/html');
+    
+    // Pass along useful headers but drop security ones
+    res.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (!['x-frame-options', 'content-security-policy', 'content-encoding', 'transfer-encoding', 'content-length'].includes(lower)) {
+        try { reply.header(key, value); } catch(e) {}
+      }
+    });
+
+    return reply.send(html);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
+  }
+});
 // Documents API
 fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
   const { type } = request.query as { type?: string };

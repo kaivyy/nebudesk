@@ -4,6 +4,13 @@ import { ArrowLeft, ArrowRight, RotateCw, Home, Globe } from 'lucide-react';
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [input, setInput] = useState(initialUrl);
+
+  const getProxiedUrl = (target: string) => {
+    if (target.includes('localhost') || target.includes('127.0.0.1')) return target;
+    const baseUrl = `http://${window.location.hostname}:3030`;
+    return `${baseUrl}/api/browser/proxy?url=${encodeURIComponent(target)}`;
+  };
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const handleNavigate = (e: React.FormEvent) => {
@@ -59,7 +66,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       <div className="flex-1 relative bg-gray-50">
         <iframe
           ref={iframeRef}
-          src={url}
+          src={getProxiedUrl(url)}
           title="NebuBrowser"
           className="w-full h-full border-none"
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
