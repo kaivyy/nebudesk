@@ -260,7 +260,7 @@ export default function AppsApp() {
             </form>
           </div>
         ) : activeTab === 'managed' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
             {apps.map(app => (
               <div key={app.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                 <div className="p-4 border-b border-gray-100 flex justify-between items-start">
@@ -445,7 +445,7 @@ export default function AppsApp() {
               <div className="mb-6 bg-blue-50/50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900">
                 <h4 className="font-bold flex items-center mb-3"><Info size={16} className="mr-2" /> Choose Your Deployment Model</h4>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
                   <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
                     <div className="font-bold text-gray-800 mb-1">🌍 VPS (Public IP)</div>
                     <p className="text-gray-600 text-xs mb-2">For standard cloud servers with a direct public IP.</p>

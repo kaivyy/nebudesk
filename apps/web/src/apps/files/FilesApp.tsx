@@ -352,7 +352,7 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
               </tbody>
             </table>
           ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-x-4 gap-y-8 content-start pt-2">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-x-2 gap-y-6 content-start pt-2 justify-items-center">
               {filteredFiles.map(file => {
                 const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
                 const info = file.isDir ? null : getFileInfo(file.name);
