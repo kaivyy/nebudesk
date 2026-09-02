@@ -245,41 +245,46 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
     {/* Right Main Area */}
     <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
       {/* Toolbar */}
-      <div className="h-14 flex items-center px-4 justify-between border-b border-transparent bg-white shrink-0 nebudesk-drag-region touch-none">
-        {/* Left Nav & Title */}
-        <div className="flex items-center gap-4 shrink-0">
-          
+      <div className="h-14 flex items-center px-2 sm:px-4 border-b border-transparent bg-white shrink-0 nebudesk-drag-region touch-none w-full overflow-hidden">
+        {/* 1. Spacer for Traffic Lights */}
+        <div className="w-[70px] sm:w-[90px] shrink-0" />
+        
+        {/* 2. Left Nav & Title */}
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <div className="flex gap-1 text-gray-500 nebudesk-no-drag">
             <button onClick={goBack} disabled={historyIdx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={20} /></button>
             <button onClick={goForward} disabled={historyIdx >= history.length - 1} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronRight size={20} /></button>
           </div>
-          <h1 className="font-semibold text-gray-800 text-sm truncate max-w-[200px]">{currentPath.split('/').pop() || 'Root'}</h1>
+          <h1 className="font-semibold text-gray-800 text-sm truncate max-w-[80px] sm:max-w-[200px]">{currentPath.split('/').pop() || 'Root'}</h1>
         </div>
 
-        {/* Right Controls */}
-        <div className="flex items-center gap-3 nebudesk-no-drag">
+        {/* 3. Flexible Spacer */}
+        <div className="flex-1 min-w-[10px]" />
+
+        {/* 4. Right Controls */}
+        <div className="flex items-center gap-1 sm:gap-3 nebudesk-no-drag overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 max-w-[50%] sm:max-w-none">
           {/* View Toggle */}
-          <div className="flex items-center bg-[#f3f3f3] rounded-md border border-gray-200 p-0.5">
-            <button onClick={() => setViewMode('grid')} className={`p-1 px-2 rounded-md transition-colors ${viewMode === 'grid' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><LayoutGrid size={16} /></button>
-            <button onClick={() => setViewMode('list')} className={`p-1 px-2 rounded-md transition-colors ${viewMode === 'list' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><List size={16} /></button>
+          <div className="flex items-center bg-[#f3f3f3] rounded-md border border-gray-200 p-0.5 shrink-0">
+            <button onClick={() => setViewMode('grid')} className={`p-1 px-1.5 sm:px-2 rounded-md transition-colors ${viewMode === 'grid' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><LayoutGrid size={16} /></button>
+            <button onClick={() => setViewMode('list')} className={`p-1 px-1.5 sm:px-2 rounded-md transition-colors ${viewMode === 'list' ? 'text-gray-800 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><List size={16} /></button>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1 text-gray-500">
-            <button onClick={handleCreateFolder} className="p-1.5 hover:bg-gray-100 rounded-md" title="New Folder"><FolderPlus size={18} /></button>
-            <button onClick={handleCreateFile} className="p-1.5 hover:bg-gray-100 rounded-md" title="New File"><FilePlus size={18} /></button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md"><MoreHorizontal size={18} /></button>
+          <div className="flex items-center gap-0.5 sm:gap-1 text-gray-500 shrink-0">
+            <button onClick={handleCreateFolder} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="New Folder"><FolderPlus size={18} /></button>
+            <button onClick={handleCreateFile} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="New File"><FilePlus size={18} /></button>
+            <button className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md"><MoreHorizontal size={18} /></button>
           </div>
 
           {/* Search */}
-          <div className="relative flex items-center">
+          <div className="relative flex items-center shrink-0">
             <Search size={14} className="absolute left-2 text-gray-400" />
             <input 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               type="text" 
               placeholder="Search"
-              className="pl-7 pr-3 py-1 w-24 bg-[#f3f3f3] border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all focus:w-40"
+              className="pl-7 pr-3 py-1 w-20 sm:w-24 bg-[#f3f3f3] border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all focus:w-32 sm:focus:w-40"
             />
           </div>
         </div>

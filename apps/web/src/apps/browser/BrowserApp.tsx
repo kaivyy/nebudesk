@@ -318,7 +318,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   return (
     <div className="h-full flex flex-col bg-white" tabIndex={0} onKeyDown={handleKeyDown} onKeyUp={handleKeyUp}>
       <div className="h-14 bg-gray-100 border-b border-gray-300 flex items-center shrink-0 nebudesk-drag-region select-none touch-none px-2">
-        <div className="w-[80px] shrink-0"></div>
+        <div className="w-[90px] shrink-0"></div>
         
         <div className="flex items-center space-x-1 nebudesk-no-drag">
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={handleBack}>
