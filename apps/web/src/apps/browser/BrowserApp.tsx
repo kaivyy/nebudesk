@@ -4,63 +4,26 @@ import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader } from 'luci
 import DOMInspector from './DOMInspector';
 
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
-  const [url, setUrl] = useState(initialUrl);
   const [input, setInput] = useState(initialUrl);
-  const [devMode, setDevMode] = useState(false);
+  const [devMode, setDevMode] = useState(false); // Now only toggles the DevTools panel visibility
   const [activeTab, setActiveTab] = useState('Console');
   const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
   const [networkRequests, setNetworkRequests] = useState<any[]>([]);
   const [domContent, setDomContent] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [screenFrame, setScreenFrame] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const getProxiedUrl = (target: string) => {
-    if (target.includes('localhost') || target.includes('127.0.0.1')) return target;
-    const baseUrl = `http://${window.location.hostname}:3030`;
-    return `${baseUrl}/api/browser/proxy?url=${encodeURIComponent(target)}`;
-  };
-
-  // Listen for navigation messages from proxied iframe content
+  // WebSocket connection for Full Chromium Mode
   useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'NEBU_NAVIGATE' && e.data.url) {
-        const newUrl = e.data.url;
-        setUrl(newUrl);
-        setInput(newUrl);
-        // In devMode, also navigate Playwright
-        if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ action: 'navigate', url: newUrl }));
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [devMode]);
-
-  // WebSocket connection for DevTools mode
-  useEffect(() => {
-    if (!devMode) {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setScreenFrame('');
-      setConsoleLogs([]);
-      setNetworkRequests([]);
-      setDomContent(null);
-      return;
-    }
-
     setLoading(true);
     const wsUrl = `ws://${window.location.hostname}:3030/ws/browser`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ action: 'init', url }));
+      ws.send(JSON.stringify({ action: 'init', url: initialUrl }));
     };
 
     ws.onmessage = (event) => {
@@ -91,7 +54,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             setDomContent(msg.data?.root || null);
             break;
           case 'navigated':
-            setUrl(msg.url);
             setInput(msg.url);
             setLoading(false);
             setConsoleLogs([]);
@@ -106,15 +68,26 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     };
 
     ws.onerror = () => setLoading(false);
-    ws.onclose = () => setLoading(false);
+    
+    return () => {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    };
+  }, []); // Run once on mount
 
-    return () => { ws.close(); wsRef.current = null; };
-  }, [devMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Request DOM only when Elements tab is active (saves bandwidth)
+  useEffect(() => {
+    if (devMode && activeTab === 'Elements' && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'getDOM' }));
+    }
+  }, [devMode, activeTab]);
 
   const handleNavigate = (e: React.FormEvent) => {
     e.preventDefault();
     let target = input.trim();
-    
+    if (!target) return;
+
     const isUrl = /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(target) || target.startsWith('http://') || target.startsWith('https://') || target.startsWith('localhost') || target.startsWith('127.0.0.1');
 
     if (!isUrl) {
@@ -122,21 +95,16 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
       target = 'https://' + target;
     }
-    
-    setUrl(target);
-    setInput(target);
 
-    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
-      setLoading(true);
-      setConsoleLogs([]);
-      setNetworkRequests([]);
+    setInput(target);
+    setLoading(true);
+    
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'navigate', url: target }));
     }
   };
 
-
-
-  // Forward mouse/keyboard events to Playwright when in DevTools mode
+  // Forward mouse/keyboard events to Playwright
   const sendInput = useCallback((event: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'input', event }));
@@ -149,6 +117,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const scaleY = 720 / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
+    
+    sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
     setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
   };
@@ -161,13 +131,11 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!devMode) return;
     e.preventDefault();
     sendInput({ type: 'keydown', key: e.key, text: e.key.length === 1 ? e.key : '', code: e.code });
   };
 
   const handleKeyUp = (e: React.KeyboardEvent) => {
-    if (!devMode) return;
     sendInput({ type: 'keyup', key: e.key, code: e.code });
   };
 
@@ -179,27 +147,21 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   };
 
   const handleBack = () => {
-    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'back' }));
-    } else if (!devMode) {
-      iframeRef.current?.contentWindow?.history.back();
     }
   };
 
   const handleForward = () => {
-    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'forward' }));
-    } else if (!devMode) {
-      iframeRef.current?.contentWindow?.history.forward();
     }
   };
 
   const handleReload = () => {
-    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       setLoading(true);
       wsRef.current.send(JSON.stringify({ action: 'reload' }));
-    } else if (!devMode) {
-      if (iframeRef.current) iframeRef.current.src = getProxiedUrl(url);
     }
   };
 
@@ -219,10 +181,10 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={handleReload}>
             <RotateCw size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => { setUrl('http://localhost:5050'); setInput('http://localhost:5050'); }}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => { setInput('http://localhost:5050'); }}>
             <Home size={16} />
           </button>
-          <button className={`p-1.5 rounded ml-1 ${devMode ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} title="DevTools" onClick={() => setDevMode(!devMode)}>
+          <button className={`p-1.5 rounded ml-1 ${devMode ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} title="Toggle DevTools Panel" onClick={() => setDevMode(!devMode)}>
             <Code size={16} />
           </button>
         </div>
@@ -243,36 +205,25 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       <div className="flex-1 flex flex-col relative bg-gray-50 overflow-hidden">
         {/* Browser View */}
         <div className={`w-full ${devMode ? 'h-1/2 border-b border-gray-300' : 'h-full'} relative`}>
-          {devMode ? (
-            // Screencast mode — real Chromium rendered frames
-            <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden">
-              {loading && !screenFrame && (
-                <div className="flex flex-col items-center text-gray-400">
-                  <Loader size={24} className="animate-spin mb-2" />
-                  <span className="text-sm">Connecting to Chromium...</span>
-                </div>
-              )}
-              {screenFrame && (
-                <img
-                  src={screenFrame}
-                  alt="Browser"
-                  className="w-full h-full object-contain cursor-pointer"
-                  onClick={handleScreenClick}
-                  onWheel={handleScreenScroll}
-                  draggable={false}
-                />
-              )}
-            </div>
-          ) : (
-            // Lightweight iframe mode
-            <iframe
-              ref={iframeRef}
-              src={getProxiedUrl(url)}
-              title="NebuBrowser"
-              className="w-full h-full border-none"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
-            />
-          )}
+          {/* Screencast mode — real Chromium rendered frames */}
+          <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden">
+            {loading && !screenFrame && (
+              <div className="flex flex-col items-center text-gray-400">
+                <Loader size={24} className="animate-spin mb-2" />
+                <span className="text-sm">Connecting to Chromium...</span>
+              </div>
+            )}
+            {screenFrame && (
+              <img
+                src={screenFrame}
+                alt="Browser"
+                className="w-full h-full object-contain cursor-pointer"
+                onClick={handleScreenClick}
+                onWheel={handleScreenScroll}
+                draggable={false}
+              />
+            )}
+          </div>
         </div>
 
         {/* DevTools Panel */}
