@@ -5,6 +5,7 @@ import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
 import TerminalApp from '../apps/terminal/TerminalApp';
+import BrowserApp from '../apps/browser/BrowserApp';
 import DockerApp from '../apps/docker/DockerApp';
 import ServicesApp from '../apps/services/ServicesApp';
 import CodeApp from '../apps/code/CodeApp';
@@ -76,6 +77,7 @@ export default function Desktop() {
           <Window key={win.id} win={win}>
             {win.appId === 'files' && <FilesApp initialPath={(win as any).path} />}
             {win.appId === 'terminal' && <TerminalApp winId={win.id} />}
+            {win.appId === 'browser' && <BrowserApp />}
             {win.appId === 'code' && <CodeApp initialPath={(win as any).path} winId={win.id} />}
                         {win.appId === 'docker' && <DockerApp />}
             {win.appId === 'services' && <ServicesApp />}

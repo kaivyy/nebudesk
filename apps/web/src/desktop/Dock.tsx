@@ -21,6 +21,7 @@ export default function Dock() {
 
   const apps = [
     { id: 'files', title: 'Finder', icon: '/icons/finder.png' },
+    { id: 'browser', title: 'NebuBrowser', icon: '/icons/safari.svg' },
     { id: 'code', title: 'NebuCode', icon: '/icons/vscode.png' },
     { id: 'terminal', title: 'Terminal', icon: '/icons/terminal.png' },
     { id: 'tasks', title: 'Task Manager', icon: '/icons/automator.png' },
