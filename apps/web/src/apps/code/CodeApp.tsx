@@ -6,7 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import 'xterm/css/xterm.css';
 import { 
   Folder, File, ChevronRight, ChevronDown, FileCode2, FileJson, FileText,
-  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, X, FilePlus, TerminalSquare, RefreshCw, Plus, Trash2
+  Search, GitBranch, Settings, LayoutPanelLeft, FolderPlus, X, FilePlus, TerminalSquare, RefreshCw, Plus, Trash2, Columns
 } from 'lucide-react';
 
 interface FileEntry {
@@ -255,6 +255,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   // Editor State
   const [openFiles, setOpenFiles] = useState<{path: string, content: string, original: string, isDirty: boolean}[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
+  const [splitFile, setSplitFile] = useState<string>('');
   
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
@@ -790,6 +791,15 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 </div>
                 <span className="truncate flex-1" title={f.path}>{name}</span>
                 {f.isDirty && <div className="w-2 h-2 rounded-full bg-white ml-2 opacity-50"></div>}
+                {isActive && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSplitFile(splitFile === f.path ? '' : f.path); }}
+                    className="ml-2 p-0.5 rounded hover:bg-[#444] text-gray-400 hover:text-white"
+                    title="Split Right"
+                  >
+                    <Columns size={12} />
+                  </button>
+                )}
                 <button 
                   onClick={(e) => closeFile(e, f.path)}
                   className={`ml-1 p-0.5 rounded hover:bg-[#444] ${f.isDirty ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isActive ? 'opacity-100' : ''}`}
