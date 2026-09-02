@@ -521,6 +521,16 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
   return { success: true };
 });
 
+fastify.get('/ws/browser', { websocket: true }, (connection: any, req: any) => {
+  const id = req.id;
+  connection.socket.on('message', async (message: any) => {
+    // Handle URL navigation and DevTools commands
+  });
+  connection.socket.on('close', () => {
+    import('./browserService.js').then(m => m.closeBrowserSession(id));
+  });
+});
+
 registerExtensions(fastify, ALLOWED_ROOT);
 
 
