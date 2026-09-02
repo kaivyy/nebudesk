@@ -691,9 +691,10 @@ fastify.get('/api/browser/proxy_form/:hexUrl', { preValidation: [fastify.authent
     const reqHost = (request.headers.host || request.headers[':authority'] || `${request.hostname}:3030`) as string;
     const redirectUrl = `http://${reqHost}/api/browser/proxy?url=${encodeURIComponent(finalTargetUrl)}`;
     
-    return reply.redirect(302, redirectUrl);
+    return reply.redirect(redirectUrl);
   } catch (err: any) {
-    return reply.status(500).send({ error: 'Invalid proxy form URL' });
+    console.error("proxy_form error:", err);
+    return reply.status(500).send({ error: 'Invalid proxy form URL', details: err.message });
   }
 });
 
