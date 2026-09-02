@@ -75,8 +75,8 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   // Start screencast — streams JPEG frames of the page
   await cdpSession.send('Page.startScreencast', {
     format: 'jpeg',
-    quality: 90,
-    everyNthFrame: 1,
+    quality: 60,
+    everyNthFrame: 2,
   });
 
   cdpSession.on('Page.screencastFrame', async (frame: any) => {

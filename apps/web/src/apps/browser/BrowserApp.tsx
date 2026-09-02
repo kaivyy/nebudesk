@@ -34,7 +34,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     wsRef.current = ws;
 
     ws.onopen = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       if (canvasRef.current) {
         viewportSize.current = {
           width: Math.floor(canvasRef.current.clientWidth) || 1280,
@@ -111,7 +111,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       
       const newW = Math.floor(width);
       const newH = Math.floor(height);
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       
       if (newW !== viewportSize.current.width || newH !== viewportSize.current.height) {
         viewportSize.current = { width: newW, height: newH };
