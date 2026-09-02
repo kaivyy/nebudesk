@@ -521,32 +521,34 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
   return { success: true };
 });
 
-fastify.get('/ws/browser', { websocket: true }, (connection: any, req: any) => {
+fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
   const id = req.id;
   
-  connection.socket.on('message', async (message: any) => {
+  socket.on('message', async (message: any) => {
     try {
       const data = JSON.parse(message.toString());
       if (data.action === 'init') {
         const { createBrowserSession } = await import('./browserService.js');
-        await createBrowserSession(id, data.url, connection.socket);
+        await createBrowserSession(id, data.url, socket);
       } else if (data.action === 'navigate') {
         const { navigateBrowser } = await import('./browserService.js');
         await navigateBrowser(id, data.url);
       } else if (data.action === 'getDOM') {
         const { getDOM } = await import('./browserService.js');
         const dom = await getDOM(id);
-        connection.socket.send(JSON.stringify({ type: 'dom', data: dom }));
+        socket.send(JSON.stringify({ type: 'dom', data: dom }));
       } else if (data.action === 'input') {
         const { dispatchInput } = await import('./browserService.js');
         await dispatchInput(id, data.event);
       }
-    } catch (e) {
-      console.error('WS browser error:', e);
+    } catch (err) {
+      console.error('WS Error:', err);
     }
   });
-  connection.socket.on('close', () => {
-    import('./browserService.js').then(m => m.closeBrowserSession(id));
+
+  socket.on('close', async () => {
+    const { closeBrowserSession } = await import('./browserService.js');
+    await closeBrowserSession(id);
   });
 });
 
@@ -555,7 +557,7 @@ registerExtensions(fastify, ALLOWED_ROOT);
 
 
 // Browser Proxy API
-fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.get('/api/browser/proxy', async (request: any, reply) => {
   const { url } = request.query as { url: string };
   if (!url) return reply.status(400).send({ error: 'URL is required' });
   
