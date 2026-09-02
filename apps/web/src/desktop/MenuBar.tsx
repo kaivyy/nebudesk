@@ -44,9 +44,9 @@ export default function MenuBar() {
         initialPath: '/root',
         onSelect: (p: string) => {
           if (focusedWindow?.appId === 'files') {
-            openWindow({ appId: 'files', title: 'Files', x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
+            openWindow({ appId: 'files', title: 'Files', x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
           } else {
-            openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
+            openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
           }
         }
       } 
@@ -58,7 +58,7 @@ export default function MenuBar() {
       detail: {
         initialPath: '/root',
         onSelect: (p: string) => {
-          openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false, payload: { file: p } } as any, true);
+          openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, payload: { file: p } } as any, true);
         }
       } 
     }));
@@ -87,14 +87,14 @@ export default function MenuBar() {
   // 1. File Menu
   const fileItems: MenuItem[] = [];
   if (currentApp === 'code' || currentApp === 'files' || currentApp === 'finder' || currentApp === 'terminal') {
-    fileItems.push({ label: 'New Window', shortcut: '⌘N', action: () => openWindow({ appId: currentApp === 'finder' ? 'files' : currentApp, title: currentTitle, x: 150 + Math.random()*30, y: 150 + Math.random()*30, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true) });
+    fileItems.push({ label: 'New Window', shortcut: '⌘N', action: () => openWindow({ appId: currentApp === 'finder' ? 'files' : currentApp, title: currentTitle, x: 150 + Math.random()*30, y: 150 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false }, true) });
   }
   if (currentApp === 'code' || currentApp === 'files' || currentApp === 'finder') {
     fileItems.push({ label: 'Open File', shortcut: '⇧⌘O', action: handleOpenFile });
     fileItems.push({ label: 'Open Folder', shortcut: '⌘O', action: handleOpenFolder });
   }
   if (currentApp === 'code') {
-    fileItems.push({ label: 'New Terminal', shortcut: '⌘T', action: () => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }, true) });
+    fileItems.push({ label: 'New Terminal', shortcut: '⌘T', action: () => openWindow({ appId: 'terminal', title: 'Terminal', x: 150, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }, true) });
   }
   if (focusedWindow) {
     if (fileItems.length > 0) fileItems.push({ type: 'separator' });
@@ -145,10 +145,10 @@ export default function MenuBar() {
           
           {activeMenu === 'apple' && (
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
-              <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Task Manager</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 240, y: 190, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager</button>
-              <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Task Manager</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 240, y: 190, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager</button>
+              <button onClick={() => handleAction(() => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Docker Manager</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button onClick={() => handleAction(() => window.location.reload())} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Restart...</button>
               <button onClick={() => handleAction(handleLogout)} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Log Out Admin...</button>

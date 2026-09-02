@@ -74,8 +74,8 @@ export default function Window({ win, children }: WindowProps) {
       }
 
       // Enforce minimum dimensions
-      const minW = win.minWidth || 300;
-      const minH = win.minHeight || 200;
+      const minW = win.minWidth || 550;
+      const minH = win.minHeight || 300;
 
       if (newW < minW) {
         if (resizeDir.includes('w')) newX -= (minW - newW);

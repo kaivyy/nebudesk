@@ -209,14 +209,14 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
     [files, searchQuery]);
 
   const SidebarItem = ({ icon: Icon, label, path, isActive }: any) => (
-    <div
+    <button
       onClick={() => navigate(path)}
-      className={`flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-default select-none text-sm transition-colors
+      className={`w-[calc(100%-16px)] flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-pointer select-none text-sm transition-colors text-left
         ${isActive ? 'bg-[#dcdcdc] font-medium text-gray-900' : 'hover:bg-gray-200 text-gray-700'}`}
     >
-      <Icon size={16} className={`${isActive ? 'text-blue-500' : 'text-blue-400'}`} />
+      <Icon size={16} className={`shrink-0 ${isActive ? 'text-blue-500' : 'text-blue-400'}`} />
       <span className="truncate">{label}</span>
-    </div>
+    </button>
   );
 
   return (

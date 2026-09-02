@@ -14,7 +14,7 @@ export default function Dock() {
       bringToFront(existing.id);
     } else {
       openWindow({
-        appId, title: defaultTitle, x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false
+        appId, title: defaultTitle, x: 200, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false
       });
     }
   };

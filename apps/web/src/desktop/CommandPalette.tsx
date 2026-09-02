@@ -10,11 +10,11 @@ export default function CommandPalette() {
   const { openWindow } = useWindowStore();
 
   const commands = [
-    { id: 'browser', title: 'Open Browser', icon: <Globe size={16} />, action: () => openWindow({ appId: 'browser', title: 'NebuBrowser', x: 150, y: 150, width: 800, height: 600, minWidth: 400, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'term', title: 'Open Terminal', icon: <Terminal size={16} />, action: () => openWindow({ appId: 'terminal', title: 'Terminal', x: 200, y: 150, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'files', title: 'Open File Explorer (Finder)', icon: <Folder size={16} />, action: () => openWindow({ appId: 'files', title: 'Files', x: 100, y: 100, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'docker', title: 'Open Docker Manager', icon: <Box size={16} />, action: () => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'tasks', title: 'Open Activity Monitor (Task Manager)', icon: <Activity size={16} />, action: () => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 400, minHeight: 300, minimized: false, maximized: false }) },
+    { id: 'browser', title: 'Open Browser', icon: <Globe size={16} />, action: () => openWindow({ appId: 'browser', title: 'NebuBrowser', x: 150, y: 150, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
+    { id: 'term', title: 'Open Terminal', icon: <Terminal size={16} />, action: () => openWindow({ appId: 'terminal', title: 'Terminal', x: 200, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
+    { id: 'files', title: 'Open File Explorer (Finder)', icon: <Folder size={16} />, action: () => openWindow({ appId: 'files', title: 'Files', x: 100, y: 100, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
+    { id: 'docker', title: 'Open Docker Manager', icon: <Box size={16} />, action: () => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
+    { id: 'tasks', title: 'Open Activity Monitor (Task Manager)', icon: <Activity size={16} />, action: () => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
     { id: 'reload', title: 'Reload Desktop Window', icon: <RefreshCw size={16} />, action: () => window.location.reload() },
     { id: 'logout', title: 'Log Out', icon: <LogOut size={16} />, action: async () => {
       try {
