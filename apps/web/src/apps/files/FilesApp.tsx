@@ -210,7 +210,7 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
 
   const SidebarItem = ({ icon: Icon, label, path, isActive }: any) => (
     <button
-      onClick={() => navigate(path)}
+      onPointerDown={(e) => { e.stopPropagation(); navigate(path); }}
       className={`w-[calc(100%-16px)] flex items-center gap-2 px-3 py-1.5 mx-2 rounded-md cursor-pointer select-none text-sm transition-colors text-left
         ${isActive ? 'bg-[#dcdcdc] font-medium text-gray-900' : 'hover:bg-gray-200 text-gray-700'}`}
     >
@@ -245,11 +245,8 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
     {/* Right Main Area */}
     <div className="flex-1 flex flex-col overflow-hidden h-full z-0 bg-white">
       {/* Toolbar */}
-      <div className="h-14 flex items-center px-2 sm:px-4 border-b border-transparent bg-white shrink-0 nebudesk-drag-region touch-none w-full overflow-hidden">
-        {/* 1. Spacer for Traffic Lights */}
-        <div className="w-[70px] sm:w-[90px] shrink-0" />
-        
-        {/* 2. Left Nav & Title */}
+      <div className="h-14 flex items-center px-4 sm:px-6 border-b border-transparent bg-white shrink-0 nebudesk-drag-region touch-none w-full overflow-hidden">
+        {/* Left Nav & Title */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <div className="flex gap-1 text-gray-500 nebudesk-no-drag">
             <button onClick={goBack} disabled={historyIdx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={20} /></button>
