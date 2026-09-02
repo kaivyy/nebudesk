@@ -21,6 +21,23 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     return `${baseUrl}/api/browser/proxy?url=${encodeURIComponent(target)}`;
   };
 
+  // Listen for navigation messages from proxied iframe content
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'NEBU_NAVIGATE' && e.data.url) {
+        const newUrl = e.data.url;
+        setUrl(newUrl);
+        setInput(newUrl);
+        // In devMode, also navigate Playwright
+        if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ action: 'navigate', url: newUrl }));
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [devMode]);
+
   // WebSocket connection for DevTools mode
   useEffect(() => {
     if (!devMode) {

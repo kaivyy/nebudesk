@@ -560,63 +560,109 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
   if (!url) return reply.status(400).send({ error: 'URL is required' });
   
   try {
+    const targetUrl = new URL(url);
     const res = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
     });
+    
+    const contentType = res.headers.get('content-type') || 'text/html';
+    
+    // For non-HTML content (images, CSS, JS, etc), just pipe through
+    if (!contentType.includes('text/html')) {
+      const buffer = Buffer.from(await res.arrayBuffer());
+      reply.header('Content-Type', contentType);
+      return reply.send(buffer);
+    }
     
     let html = await res.text();
     
-    // Inject <base> tag to fix relative assets
-    const baseTag = `<base href="${new URL(url).origin}">`;
+    // Build the proxy base URL so all relative URLs resolve through our proxy
+    const proxyBase = `/api/browser/proxy?url=`;
+    const origin = targetUrl.origin;
+    
+    // Rewrite the <base> tag to point to our proxy
+    // This makes ALL relative URLs (href="/search", src="/images/logo.png") resolve through our proxy
+    const baseTag = `<base href="${origin}/">`;
     if (html.includes('<head>')) {
       html = html.replace('<head>', '<head>' + baseTag);
+    } else if (html.includes('<HEAD>')) {
+      html = html.replace('<HEAD>', '<HEAD>' + baseTag);
     } else {
       html = baseTag + html;
     }
-    const scriptTag = `
-      <script>
-        document.addEventListener('click', function(e) {
-          const a = e.target.closest('a');
-          if (a && a.href) {
-            e.preventDefault();
-            window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: a.href }, '*');
-          }
-        }, true);
-        document.addEventListener('submit', function(e) {
+    
+    // Rewrite form actions to go through proxy
+    html = html.replace(/action="\/([^"]*)"/gi, (match: string, path: string) => {
+      return `action="${proxyBase}${encodeURIComponent(origin + '/' + path)}"`;
+    });
+    html = html.replace(/action='\/([^']*)'/gi, (match: string, path: string) => {
+      return `action='${proxyBase}${encodeURIComponent(origin + '/' + path)}'`;
+    });
+    
+    // Inject a script that intercepts all navigation and form submissions
+    // Use a MutationObserver approach that works even without nonce
+    const interceptScript = `
+    <script>
+    (function() {
+      // Override window.location assignments
+      var proxyBase = window.location.origin + '${proxyBase}';
+      var origin = '${origin}';
+      
+      // Intercept form submissions
+      document.addEventListener('submit', function(e) {
+        var form = e.target;
+        if (form.tagName !== 'FORM') return;
+        var action = form.getAttribute('action') || '';
+        if (action && !action.includes('${proxyBase}')) {
           e.preventDefault();
-          const form = e.target;
-          const formData = new FormData(form);
-          const params = new URLSearchParams(formData);
-          let actionUrl = form.action || window.location.href;
-          if (form.method.toLowerCase() === 'get') {
-            const urlObj = new URL(actionUrl);
-            urlObj.search = params.toString();
-            actionUrl = urlObj.toString();
+          var formData = new FormData(form);
+          var params = new URLSearchParams(formData);
+          var fullUrl;
+          if (action.startsWith('http')) {
+            fullUrl = action;
+          } else if (action.startsWith('/')) {
+            fullUrl = origin + action;
+          } else {
+            fullUrl = origin + '/' + action;
           }
-          window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: actionUrl }, '*');
-        }, true);
-      </script>
-    `;
+          if (form.method && form.method.toUpperCase() === 'GET') {
+            fullUrl = fullUrl.split('?')[0] + '?' + params.toString();
+          }
+          window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: fullUrl }, '*');
+        }
+      }, true);
+      
+      // Intercept link clicks
+      document.addEventListener('click', function(e) {
+        var a = e.target;
+        while (a && a.tagName !== 'A') a = a.parentElement;
+        if (!a || !a.href) return;
+        var href = a.href;
+        // Skip javascript: and # links
+        if (href.startsWith('javascript:') || href === '#') return;
+        e.preventDefault();
+        e.stopPropagation();
+        window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: href }, '*');
+      }, true);
+    })();
+    </script>`;
+    
     if (html.includes('</body>')) {
-      html = html.replace('</body>', scriptTag + '</body>');
+      html = html.replace('</body>', interceptScript + '</body>');
     } else {
-      html += scriptTag;
+      html += interceptScript;
     }
 
-
     // Strip restrictive headers
-    reply.header('Content-Type', res.headers.get('content-type') || 'text/html');
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    // Remove ALL security headers that block iframe embedding
+    // Do NOT forward x-frame-options, CSP, etc.
     
-    // Pass along useful headers but drop security ones
-    res.headers.forEach((value, key) => {
-      const lower = key.toLowerCase();
-      if (!['x-frame-options', 'content-security-policy', 'content-encoding', 'transfer-encoding', 'content-length'].includes(lower)) {
-        try { reply.header(key, value); } catch(e) {}
-      }
-    });
-
     return reply.send(html);
   } catch (err: any) {
     return reply.status(500).send({ error: err.message });
