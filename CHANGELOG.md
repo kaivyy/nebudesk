@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.0] - 2026-09-03
+### ✨ Features & Polishing
+- **NebuBrowser (Full Chromium Engine)**: Completely rebuilt the internal browser. Replaced restricted iframes with a live Playwright Chromium CDP screencast streamed via WebSockets. Bypasses iframe restrictions, Google captchas, and includes a built-in DevTools Elements Inspector.
+- **NebuCode IDE Upgrades**: Elevated the text editor to IDE status by adding a Global Command Palette (`Cmd+P`), Quick File Open, Rename, Document Formatting, and Horizontal Split Panes for side-by-side editing.
+- **Terminal Multi-Tabs**: Introduced macOS-style multiple tabs for the Terminal app, allowing concurrent, isolated shell sessions.
+- **Finder File Uploads**: Integrated `@fastify/multipart` to support seamless file uploading directly from your host PC to the server via the Finder UI.
+- **Window & Dock Animations**: Added a buttery smooth `cubic-bezier` spring zoom animation when windows open, and introduced a toggleable macOS-style Auto-Hide feature for the Dock.
+- **Interactive Installation**: The `install.sh` script now prompts before downloading the ~300MB Playwright Chromium engine. If skipped, NebuDesk gracefully handles the missing dependency with a UI error screen rather than crashing.
+
+### 🐛 Bug Fixes & Mobile Support
+- **Mobile Keyboard & Touch Engine**: Major overhaul of touch event handling. Fixed the Chromium mobile virtual keyboard glitch by mapping precise High-DPI screen coordinates and intercepting native touch scrolling.
+- **Fluid Grid Layouts**: Ripped out rigid Tailwind screen breakpoints (`md:grid-cols-6`) in Finder and App Manager in favor of true CSS Container Queries (`auto-fill`). Grids now flow perfectly regardless of the window's physical width.
+- **Z-Index Stacking Context**: Resolved an infinite z-index leak where windows would eventually overlap the Menu Bar and Dock. Implemented strict flex boundaries to restrict maximized windows precisely between the top bar and dock.
+- **Toolbar Responsive Limits**: Added strict `minWidth` bounds (550px) to prevent complex app toolbars from getting crushed, and fixed floating macOS traffic lights overlapping with the Back/Forward navigation controls.
+
 ## [v0.1.2] - 2026-09-02
 ### ✨ Features & Polishing
 - **Activity Monitor Consolidation**: Merged the old "System Monitor" and "Task Manager" into a single, unified macOS-style Activity Monitor. Features real-time background caching via `top` to guarantee flawless instantaneous CPU reporting, and a new Force Kill modal for precision task management.
