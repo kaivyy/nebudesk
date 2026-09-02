@@ -5,18 +5,20 @@ import DOMInspector from './DOMInspector';
 
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
   const [input, setInput] = useState(initialUrl);
-  const [devMode, setDevMode] = useState(false); // Now only toggles the DevTools panel visibility
+  const [devMode, setDevMode] = useState(false);
   const [activeTab, setActiveTab] = useState('Console');
   const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
   const [networkRequests, setNetworkRequests] = useState<any[]>([]);
   const [domContent, setDomContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [screenFrame, setScreenFrame] = useState<string>('');
+  
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const viewportSize = useRef({ width: 1280, height: 720 });
+  const resizeTimer = useRef<any>(null);
 
-  // WebSocket connection for Full Chromium Mode
   useEffect(() => {
     setLoading(true);
     const wsUrl = `ws://${window.location.hostname}:3030/ws/browser`;
@@ -24,7 +26,19 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ action: 'init', url: initialUrl }));
+      // Send initial dimensions based on container
+      if (canvasRef.current) {
+        viewportSize.current = {
+          width: Math.floor(canvasRef.current.clientWidth) || 1280,
+          height: Math.floor(canvasRef.current.clientHeight) || 720
+        };
+      }
+      ws.send(JSON.stringify({ 
+        action: 'init', 
+        url: initialUrl,
+        width: viewportSize.current.width,
+        height: viewportSize.current.height
+      }));
     };
 
     ws.onmessage = (event) => {
@@ -77,7 +91,34 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     };
   }, []); // Run once on mount
 
-  // Request DOM only when Elements tab is active (saves bandwidth)
+  // Watch for container resizes
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    
+    const resizeObserver = new ResizeObserver(entries => {
+      if (!entries[0]) return;
+      const { width, height } = entries[0].contentRect;
+      if (width === 0 || height === 0) return;
+      
+      const newW = Math.floor(width);
+      const newH = Math.floor(height);
+      
+      if (newW !== viewportSize.current.width || newH !== viewportSize.current.height) {
+        viewportSize.current = { width: newW, height: newH };
+        
+        clearTimeout(resizeTimer.current);
+        resizeTimer.current = setTimeout(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ action: 'resize', width: newW, height: newH }));
+          }
+        }, 300); // debounce
+      }
+    });
+    
+    resizeObserver.observe(canvasRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
   useEffect(() => {
     if (devMode && activeTab === 'Elements' && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'getDOM' }));
@@ -105,7 +146,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     }
   };
 
-  // Forward mouse/keyboard events to Playwright
   const sendInput = useCallback((event: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ action: 'input', event }));
@@ -113,14 +153,14 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   }, []);
 
   const handleScreenClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    // Focus the hidden input to trigger mobile keyboards
     hiddenInputRef.current?.focus();
-
     const rect = e.currentTarget.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 720 / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    
+    // With dynamic resize, the screencast naturally matches the container size
+    // but object-contain might scale it slightly if aspect ratios aren't perfectly aligned during transit.
+    // However, since we dynamically set viewport to container dimensions, they should be a 1:1 match.
+    const x = (e.clientX - rect.left);
+    const y = (e.clientY - rect.top);
     
     sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
@@ -129,9 +169,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleScreenScroll = (e: React.WheelEvent<HTMLImageElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 720 / rect.height;
-    sendInput({ type: 'scroll', x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY, deltaX: e.deltaX, deltaY: e.deltaY });
+    sendInput({ type: 'scroll', x: (e.clientX - rect.left), y: (e.clientY - rect.top), deltaX: e.deltaX, deltaY: e.deltaY });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -139,9 +177,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.id !== 'mobile-keyboard-trap') return;
     
     if (target.id === 'mobile-keyboard-trap') {
-      // Don't preventDefault for Backspace on mobile so it can fire repeatedly, but we must prevent it for regular keys 
-      // otherwise mobile keyboards can behave erratically, though testing might be needed. For now let's just forward it.
-      if (e.key === 'Unidentified') return; // Mobile composition keys
+      if (e.key === 'Unidentified') return;
     } else {
       e.preventDefault();
     }
@@ -183,7 +219,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   return (
     <div className="h-full flex flex-col bg-white" tabIndex={0} onKeyDown={handleKeyDown} onKeyUp={handleKeyUp}>
-      {/* Toolbar */}
       <div className="h-14 bg-gray-100 border-b border-gray-300 flex items-center shrink-0 nebudesk-drag-region select-none touch-none px-2">
         <div className="w-[80px] shrink-0"></div>
         
@@ -217,11 +252,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         </form>
       </div>
 
-      {/* Content Area */}
       <div className="flex-1 flex flex-col relative bg-gray-50 overflow-hidden">
-        {/* Browser View */}
         <div className={`w-full ${devMode ? 'h-1/2 border-b border-gray-300' : 'h-full'} relative`}>
-          {/* Mobile Keyboard Trap */}
           <input
             ref={hiddenInputRef}
             id="mobile-keyboard-trap"
@@ -232,7 +264,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             autoCapitalize="off"
             spellCheck="false"
           />
-          {/* Screencast mode — real Chromium rendered frames */}
           <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden">
             {loading && !screenFrame && (
               <div className="flex flex-col items-center text-gray-400">
@@ -253,7 +284,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
           </div>
         </div>
 
-        {/* DevTools Panel */}
         {devMode && (
           <div className="flex-1 bg-[#242424] text-[#d4d4d4] flex flex-col overflow-hidden text-[12px] font-mono">
             <div className="h-8 border-b border-[#3c3c3c] bg-[#2d2d2d] flex items-center px-4 space-x-4 shrink-0">

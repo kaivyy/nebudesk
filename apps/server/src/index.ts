@@ -529,7 +529,10 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
       const data = JSON.parse(message.toString());
       if (data.action === 'init') {
         const { createBrowserSession } = await import('./browserService.js');
-        await createBrowserSession(id, data.url, socket);
+        await createBrowserSession(id, data.url, socket, data.width || 1280, data.height || 720);
+      } else if (data.action === 'resize') {
+        const { resizeBrowser } = await import('./browserService.js');
+        await resizeBrowser(id, data.width, data.height);
       } else if (data.action === 'navigate') {
         const { navigateBrowser } = await import('./browserService.js');
         await navigateBrowser(id, data.url);

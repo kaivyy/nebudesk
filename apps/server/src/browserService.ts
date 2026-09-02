@@ -23,12 +23,12 @@ function safeSend(ws: any, data: any) {
   } catch (e) { /* connection closed */ }
 }
 
-export async function createBrowserSession(id: string, initialUrl: string, ws: any) {
+export async function createBrowserSession(id: string, initialUrl: string, ws: any, width: number = 1280, height: number = 720) {
   // Clean up any existing session for this id
   await closeBrowserSession(id);
 
   const browser = await getBrowser();
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const context = await browser.newContext({ viewport: { width, height } });
   const page = await context.newPage();
   const cdpSession = await context.newCDPSession(page);
 
@@ -69,8 +69,6 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   await cdpSession.send('Page.startScreencast', {
     format: 'jpeg',
     quality: 60,
-    maxWidth: 1280,
-    maxHeight: 720,
     everyNthFrame: 2,
   });
 
@@ -202,4 +200,13 @@ export async function dispatchInput(id: string, event: any) {
       });
     }
   } catch(e) {}
+}
+
+export async function resizeBrowser(id: string, width: number, height: number) {
+  const session = activePages.get(id);
+  if (session) {
+    try {
+      await session.page.setViewportSize({ width, height });
+    } catch(e) {}
+  }
 }
