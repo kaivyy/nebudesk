@@ -529,7 +529,7 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
       const data = JSON.parse(message.toString());
       if (data.action === 'init') {
         const { createBrowserSession } = await import('./browserService.js');
-        await createBrowserSession(id, data.url, socket, data.width || 1280, data.height || 720);
+        await createBrowserSession(id, data.url, socket, data.width || 1280, data.height || 720, data.dpr || 1);
       } else if (data.action === 'resize') {
         const { resizeBrowser } = await import('./browserService.js');
         await resizeBrowser(id, data.width, data.height);
@@ -545,6 +545,9 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
       } else if (data.action === 'reload') {
         const { reloadPage } = await import('./browserService.js');
         await reloadPage(id);
+      } else if (data.action === 'insertText') {
+        const { insertText } = await import('./browserService.js');
+        await insertText(id, data.text);
       } else if (data.action === 'getDOM') {
         const { getDOM } = await import('./browserService.js');
         const dom = await getDOM(id);

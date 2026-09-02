@@ -13,6 +13,10 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [loading, setLoading] = useState(true);
   const [screenFrame, setScreenFrame] = useState<string>('');
   
+  // Mobile keyboard states
+  const [mobileText, setMobileText] = useState(" ");
+  const [keyboardPos, setKeyboardPos] = useState({ x: -100, y: -100 });
+  
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
@@ -26,7 +30,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     wsRef.current = ws;
 
     ws.onopen = () => {
-      // Send initial dimensions based on container
+      const dpr = window.devicePixelRatio || 1;
       if (canvasRef.current) {
         viewportSize.current = {
           width: Math.floor(canvasRef.current.clientWidth) || 1280,
@@ -37,7 +41,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         action: 'init', 
         url: initialUrl,
         width: viewportSize.current.width,
-        height: viewportSize.current.height
+        height: viewportSize.current.height,
+        dpr
       }));
     };
 
@@ -89,9 +94,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         ws.close();
       }
     };
-  }, []); // Run once on mount
+  }, []);
 
-  // Watch for container resizes
   useEffect(() => {
     if (!canvasRef.current) return;
     
@@ -102,6 +106,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       
       const newW = Math.floor(width);
       const newH = Math.floor(height);
+      const dpr = window.devicePixelRatio || 1;
       
       if (newW !== viewportSize.current.width || newH !== viewportSize.current.height) {
         viewportSize.current = { width: newW, height: newH };
@@ -109,9 +114,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         clearTimeout(resizeTimer.current);
         resizeTimer.current = setTimeout(() => {
           if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ action: 'resize', width: newW, height: newH }));
+            wsRef.current.send(JSON.stringify({ action: 'resize', width: newW, height: newH, dpr }));
           }
-        }, 300); // debounce
+        }, 300);
       }
     });
     
@@ -153,14 +158,15 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   }, []);
 
   const handleScreenClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    hiddenInputRef.current?.focus();
     const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
-    // With dynamic resize, the screencast naturally matches the container size
-    // but object-contain might scale it slightly if aspect ratios aren't perfectly aligned during transit.
-    // However, since we dynamically set viewport to container dimensions, they should be a 1:1 match.
-    const x = (e.clientX - rect.left);
-    const y = (e.clientY - rect.top);
+    setKeyboardPos({ x: e.clientX, y: e.clientY });
+    // Small delay allows React to move the input before focusing it, tricking iOS/Android
+    setTimeout(() => {
+      hiddenInputRef.current?.focus();
+    }, 10);
     
     sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
@@ -172,12 +178,29 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     sendInput({ type: 'scroll', x: (e.clientX - rect.left), y: (e.clientY - rect.top), deltaX: e.deltaX, deltaY: e.deltaY });
   };
 
+  const handleMobileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.length > mobileText.length) {
+      const char = val.slice(-1);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ action: 'insertText', text: char }));
+      }
+    } else if (val.length < mobileText.length) {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ action: 'input', event: { type: 'keydown', key: 'Backspace' } }));
+        wsRef.current.send(JSON.stringify({ action: 'input', event: { type: 'keyup', key: 'Backspace' } }));
+      }
+    }
+    setMobileText(" "); // Reset to single space so backspace always works
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
     if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.id !== 'mobile-keyboard-trap') return;
     
     if (target.id === 'mobile-keyboard-trap') {
       if (e.key === 'Unidentified') return;
+      if (e.key === 'Backspace' || e.key.length === 1) return; // Handled by onChange
     } else {
       e.preventDefault();
     }
@@ -187,6 +210,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const handleKeyUp = (e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
     if ((target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') && target.id !== 'mobile-keyboard-trap') return;
+    if (target.id === 'mobile-keyboard-trap' && (e.key === 'Backspace' || e.key.length === 1)) return;
     
     sendInput({ type: 'keyup', key: e.key, code: e.code });
   };
@@ -198,41 +222,22 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     return 'text-red-400';
   };
 
-  const handleBack = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'back' }));
-    }
-  };
-
-  const handleForward = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'forward' }));
-    }
-  };
-
-  const handleReload = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      setLoading(true);
-      wsRef.current.send(JSON.stringify({ action: 'reload' }));
-    }
-  };
-
   return (
     <div className="h-full flex flex-col bg-white" tabIndex={0} onKeyDown={handleKeyDown} onKeyUp={handleKeyUp}>
       <div className="h-14 bg-gray-100 border-b border-gray-300 flex items-center shrink-0 nebudesk-drag-region select-none touch-none px-2">
         <div className="w-[80px] shrink-0"></div>
         
         <div className="flex items-center space-x-1 nebudesk-no-drag">
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={handleBack}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={() => wsRef.current?.send(JSON.stringify({ action: 'back' }))}>
             <ArrowLeft size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={handleForward}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={() => wsRef.current?.send(JSON.stringify({ action: 'forward' }))}>
             <ArrowRight size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={handleReload}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={() => { setLoading(true); wsRef.current?.send(JSON.stringify({ action: 'reload' })); }}>
             <RotateCw size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => { setInput('http://localhost:5050'); }}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => setInput('http://localhost:5050')}>
             <Home size={16} />
           </button>
           <button className={`p-1.5 rounded ml-1 ${devMode ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} title="Toggle DevTools Panel" onClick={() => setDevMode(!devMode)}>
@@ -258,7 +263,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             ref={hiddenInputRef}
             id="mobile-keyboard-trap"
             type="text"
-            className="absolute top-0 left-0 w-1 h-1 opacity-0 -z-10"
+            value={mobileText}
+            onChange={handleMobileInputChange}
+            style={{ position: 'fixed', top: keyboardPos.y, left: keyboardPos.x, width: 20, height: 20, opacity: 0.01, zIndex: 10, pointerEvents: 'none' }}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"

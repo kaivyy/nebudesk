@@ -23,12 +23,15 @@ function safeSend(ws: any, data: any) {
   } catch (e) { /* connection closed */ }
 }
 
-export async function createBrowserSession(id: string, initialUrl: string, ws: any, width: number = 1280, height: number = 720) {
+export async function createBrowserSession(id: string, initialUrl: string, ws: any, width: number = 1280, height: number = 720, dpr: number = 1) {
   // Clean up any existing session for this id
   await closeBrowserSession(id);
 
   const browser = await getBrowser();
-  const context = await browser.newContext({ viewport: { width, height } });
+  const context = await browser.newContext({ 
+    viewport: { width, height },
+    deviceScaleFactor: dpr
+  });
   const page = await context.newPage();
   const cdpSession = await context.newCDPSession(page);
 
@@ -68,8 +71,8 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   // Start screencast — streams JPEG frames of the page
   await cdpSession.send('Page.startScreencast', {
     format: 'jpeg',
-    quality: 60,
-    everyNthFrame: 2,
+    quality: 90,
+    everyNthFrame: 1,
   });
 
   cdpSession.on('Page.screencastFrame', async (frame: any) => {
@@ -208,5 +211,12 @@ export async function resizeBrowser(id: string, width: number, height: number) {
     try {
       await session.page.setViewportSize({ width, height });
     } catch(e) {}
+  }
+}
+
+export async function insertText(id: string, text: string) {
+  const session = activePages.get(id);
+  if (session) {
+    try { await session.page.keyboard.insertText(text); } catch (e) {}
   }
 }
