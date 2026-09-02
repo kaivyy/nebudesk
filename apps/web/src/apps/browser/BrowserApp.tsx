@@ -164,30 +164,42 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   // Convert screen pixel coordinates to Chromium viewport coordinates.
   // The <img> uses object-contain so the rendered image may be letterboxed.
-  // We must map clicks to the image's internal coordinate space.
+  // We use viewportSize (not naturalWidth/Height which includes DPR scaling).
   const toViewportCoords = (clientX: number, clientY: number, el: HTMLImageElement) => {
     const rect = el.getBoundingClientRect();
-    const imgW = el.naturalWidth || viewportSize.current.width;
-    const imgH = el.naturalHeight || viewportSize.current.height;
+    const vpW = viewportSize.current.width;
+    const vpH = viewportSize.current.height;
 
-    const scale = Math.min(rect.width / imgW, rect.height / imgH);
-    const renderedW = imgW * scale;
-    const renderedH = imgH * scale;
+    // Calculate how the image is rendered inside the container
+    const containerAspect = rect.width / rect.height;
+    const imageAspect = vpW / vpH;
+
+    let renderedW: number, renderedH: number;
+    if (imageAspect > containerAspect) {
+      // Image is wider than container — pillarboxed (black bars top/bottom)
+      renderedW = rect.width;
+      renderedH = rect.width / imageAspect;
+    } else {
+      // Image is taller than container — letterboxed (black bars left/right)
+      renderedH = rect.height;
+      renderedW = rect.height * imageAspect;
+    }
+
     const offsetX = (rect.width - renderedW) / 2;
     const offsetY = (rect.height - renderedH) / 2;
 
-    const x = ((clientX - rect.left - offsetX) / renderedW) * viewportSize.current.width;
-    const y = ((clientY - rect.top - offsetY) / renderedH) * viewportSize.current.height;
+    const x = ((clientX - rect.left - offsetX) / renderedW) * vpW;
+    const y = ((clientY - rect.top - offsetY) / renderedH) * vpH;
 
     return {
-      x: Math.max(0, Math.min(viewportSize.current.width, Math.round(x))),
-      y: Math.max(0, Math.min(viewportSize.current.height, Math.round(y)))
+      x: Math.max(0, Math.min(vpW, Math.round(x))),
+      y: Math.max(0, Math.min(vpH, Math.round(y)))
     };
   };
 
   const focusKeyboard = () => {
     if (autoKeyboard && hiddenInputRef.current) {
-      hiddenInputRef.current.focus();
+      hiddenInputRef.current.focus({ preventScroll: true });
     }
   };
 
@@ -354,7 +366,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             type="text"
             value={mobileText}
             onChange={handleMobileInputChange}
-            style={{ position: 'fixed', top: -50, left: 0, width: 1, height: 1, opacity: 0, zIndex: -1 }}
+            style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 1, opacity: 0.01, pointerEvents: 'none' }}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"

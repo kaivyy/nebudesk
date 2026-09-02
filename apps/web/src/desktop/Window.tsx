@@ -103,7 +103,7 @@ export default function Window({ win, children }: WindowProps) {
   if (win.minimized) return null;
 
   const style = win.maximized 
-    ? { top: 24, left: 0, width: '100%', height: 'calc(100% - 24px - 64px)', zIndex: win.zIndex } 
+    ? { top: 0, left: 0, width: '100%', height: 'calc(100% - 88px)', zIndex: win.zIndex } 
     : { top: win.y, left: win.x, width: win.width, height: win.height, zIndex: win.zIndex };
 
   return (

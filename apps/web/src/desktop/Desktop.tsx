@@ -75,7 +75,7 @@ export default function Desktop() {
       {pickerProps && <FilePicker {...pickerProps} />}
       <CommandPalette />
       <MenuBar />
-      <div className="flex-1 relative">
+      <div className="flex-1 relative z-0">
         {windows.map(win => (
           <Window key={win.id} win={win}>
             {win.appId === 'files' && <FilesApp initialPath={(win as any).path} />}
