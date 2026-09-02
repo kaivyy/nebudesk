@@ -60,15 +60,18 @@ export default function Desktop() {
   }, []);
   
   return (
-    <div 
-      className={`w-full h-full flex flex-col relative overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
-      style={{ 
-        backgroundColor: wallpaper === 'solid-black' ? '#000000' : wallpaper === 'solid-gray' ? '#1f2937' : '#0f172a',
-        backgroundImage: (wallpaper === 'nebu' || wallpaper === 'default') ? 'url(/wallpaper.jpg)' : 'none',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }}
-    >
+    <div className={`w-full h-full flex flex-col relative overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}>
+      {/* Static Wallpaper Background - fixed to prevent mobile keyboard resize glitches */}
+      <div 
+        className="fixed inset-0 w-full h-[100vh] -z-10"
+        style={{ 
+          backgroundColor: wallpaper === 'solid-black' ? '#000000' : wallpaper === 'solid-gray' ? '#1f2937' : '#0f172a',
+          backgroundImage: (wallpaper === 'nebu' || wallpaper === 'default') ? 'url(/wallpaper.jpg)' : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      />
+
       {pickerProps && <FilePicker {...pickerProps} />}
       <CommandPalette />
       <MenuBar />

@@ -581,12 +581,12 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
     
     let html = await res.text();
     
-    // Build the proxy base URL so all relative URLs resolve through our proxy
-    const proxyBase = `/api/browser/proxy?url=`;
+    // Build the proxy base URL - MUST be absolute because <base href> points to the target origin
+    const reqHost = (request.headers.host || request.headers[':authority'] || `${request.hostname}:3030`) as string;
+    const proxyBase = `http://${reqHost}/api/browser/proxy?url=`;
     const origin = targetUrl.origin;
     
-    // Rewrite the <base> tag to point to our proxy
-    // This makes ALL relative URLs (href="/search", src="/images/logo.png") resolve through our proxy
+    // Rewrite the <base> tag to point to the target origin (for CSS/images/JS assets)
     const baseTag = `<base href="${origin}/">`;
     if (html.includes('<head>')) {
       html = html.replace('<head>', '<head>' + baseTag);
@@ -596,7 +596,7 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
       html = baseTag + html;
     }
     
-    // Rewrite form actions to go through proxy
+    // Rewrite form actions to go through our proxy (absolute URL)
     html = html.replace(/action="\/([^"]*)"/gi, (match: string, path: string) => {
       return `action="${proxyBase}${encodeURIComponent(origin + '/' + path)}"`;
     });
