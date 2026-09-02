@@ -4,7 +4,11 @@ import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader } from 'luci
 import DOMInspector from './DOMInspector';
 
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
-  const [input, setInput] = useState(initialUrl);
+  // Try to load last URL from localStorage, fallback to initialUrl
+  const [input, setInput] = useState(() => {
+    try { return localStorage.getItem('nebu_browser_last_url') || initialUrl; }
+    catch(e) { return initialUrl; }
+  });
   const [devMode, setDevMode] = useState(false);
   const [activeTab, setActiveTab] = useState('Console');
   const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
@@ -21,7 +25,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const viewportSize = useRef({ width: 1280, height: 720 });
   const resizeTimer = useRef<any>(null);
-  const touchState = useRef({ x: 0, y: 0, scrolling: false });
+  const touchState = useRef({ startX: 0, startY: 0, x: 0, y: 0, scrolling: false });
 
   useEffect(() => {
     setLoading(true);
@@ -39,7 +43,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       }
       ws.send(JSON.stringify({ 
         action: 'init', 
-        url: initialUrl,
+        url: input, // Use the localStorage loaded input
         width: viewportSize.current.width,
         height: viewportSize.current.height,
         dpr
@@ -75,6 +79,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             break;
           case 'navigated':
             setInput(msg.url);
+            try { localStorage.setItem('nebu_browser_last_url', msg.url); } catch(e) {}
             setLoading(false);
             setConsoleLogs([]);
             setNetworkRequests([]);
@@ -94,7 +99,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         ws.close();
       }
     };
-  }, []);
+  }, []); // Run once on mount
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -179,17 +184,23 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
     const touch = e.touches[0];
-    touchState.current = { x: touch.clientX, y: touch.clientY, scrolling: false };
+    touchState.current = { startX: touch.clientX, startY: touch.clientY, x: touch.clientX, y: touch.clientY, scrolling: false };
     setKeyboardPos({ x: touch.clientX, y: touch.clientY });
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
     const touch = e.touches[0];
-    const dx = touchState.current.x - touch.clientX;
-    const dy = touchState.current.y - touch.clientY;
+    const totalDx = Math.abs(touch.clientX - touchState.current.startX);
+    const totalDy = Math.abs(touch.clientY - touchState.current.startY);
     
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+    // If they move more than 15px total from start, it's a drag/scroll, not a tap
+    if (totalDx > 15 || totalDy > 15) {
       touchState.current.scrolling = true;
+    }
+    
+    if (touchState.current.scrolling) {
+      const dx = touchState.current.x - touch.clientX;
+      const dy = touchState.current.y - touch.clientY;
       sendInput({ type: 'scroll', deltaX: dx, deltaY: dy });
       touchState.current.x = touch.clientX;
       touchState.current.y = touch.clientY;
@@ -200,8 +211,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     if (!touchState.current.scrolling) {
       setTimeout(() => hiddenInputRef.current?.focus(), 10);
       const rect = e.currentTarget.getBoundingClientRect();
-      const x = touchState.current.x - rect.left;
-      const y = touchState.current.y - rect.top;
+      const x = touchState.current.startX - rect.left;
+      const y = touchState.current.startY - rect.top;
       sendInput({ type: 'mousemove', x, y });
       sendInput({ type: 'mousedown', x, y });
       setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
@@ -332,6 +343,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
                 src={screenFrame}
                 alt="Browser"
                 className="w-full h-full object-contain cursor-pointer"
+                style={{ touchAction: 'none' }}
                 onWheel={handleScreenScroll}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
