@@ -533,6 +533,15 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
       } else if (data.action === 'navigate') {
         const { navigateBrowser } = await import('./browserService.js');
         await navigateBrowser(id, data.url);
+      } else if (data.action === 'back') {
+        const { goBack } = await import('./browserService.js');
+        await goBack(id);
+      } else if (data.action === 'forward') {
+        const { goForward } = await import('./browserService.js');
+        await goForward(id);
+      } else if (data.action === 'reload') {
+        const { reloadPage } = await import('./browserService.js');
+        await reloadPage(id);
       } else if (data.action === 'getDOM') {
         const { getDOM } = await import('./browserService.js');
         const dom = await getDOM(id);

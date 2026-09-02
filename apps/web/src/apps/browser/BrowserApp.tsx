@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader } from 'lucide-react';
 
+import DOMInspector from './DOMInspector';
+
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [input, setInput] = useState(initialUrl);
@@ -8,7 +10,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [activeTab, setActiveTab] = useState('Console');
   const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
   const [networkRequests, setNetworkRequests] = useState<any[]>([]);
-  const [domContent, setDomContent] = useState<string>('');
+  const [domContent, setDomContent] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [screenFrame, setScreenFrame] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
@@ -48,7 +50,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       setScreenFrame('');
       setConsoleLogs([]);
       setNetworkRequests([]);
-      setDomContent('');
+      setDomContent(null);
       return;
     }
 
@@ -86,13 +88,15 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             });
             break;
           case 'dom':
-            setDomContent(JSON.stringify(msg.data, null, 2));
+            setDomContent(msg.data?.root || null);
             break;
           case 'navigated':
+            setUrl(msg.url);
             setInput(msg.url);
+            setLoading(false);
             setConsoleLogs([]);
             setNetworkRequests([]);
-            setDomContent('');
+            setDomContent(null);
             break;
           case 'error':
             setLoading(false);
@@ -130,14 +134,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     }
   };
 
-  const handleReload = () => {
-    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
-      setLoading(true);
-      wsRef.current.send(JSON.stringify({ action: 'navigate', url }));
-    } else if (iframeRef.current) {
-      iframeRef.current.src = getProxiedUrl(url);
-    }
-  };
+
 
   // Forward mouse/keyboard events to Playwright when in DevTools mode
   const sendInput = useCallback((event: any) => {
@@ -181,6 +178,31 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     return 'text-red-400';
   };
 
+  const handleBack = () => {
+    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'back' }));
+    } else if (!devMode) {
+      iframeRef.current?.contentWindow?.history.back();
+    }
+  };
+
+  const handleForward = () => {
+    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'forward' }));
+    } else if (!devMode) {
+      iframeRef.current?.contentWindow?.history.forward();
+    }
+  };
+
+  const handleReload = () => {
+    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+      setLoading(true);
+      wsRef.current.send(JSON.stringify({ action: 'reload' }));
+    } else if (!devMode) {
+      if (iframeRef.current) iframeRef.current.src = getProxiedUrl(url);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-white" tabIndex={0} onKeyDown={handleKeyDown} onKeyUp={handleKeyUp}>
       {/* Toolbar */}
@@ -188,10 +210,10 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         <div className="w-[80px] shrink-0"></div>
         
         <div className="flex items-center space-x-1 nebudesk-no-drag">
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={() => { if (!devMode) iframeRef.current?.contentWindow?.history.back(); }}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={handleBack}>
             <ArrowLeft size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={() => { if (!devMode) iframeRef.current?.contentWindow?.history.forward(); }}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={handleForward}>
             <ArrowRight size={16} />
           </button>
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={handleReload}>
@@ -271,9 +293,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             </div>
             <div className="flex-1 overflow-auto bg-[#1e1e1e]">
               {activeTab === 'Elements' && (
-                <pre className="p-3 text-gray-300 whitespace-pre-wrap text-[11px] leading-4">
-                  {domContent || 'Navigate to a page to inspect its DOM...'}
-                </pre>
+                <DOMInspector node={domContent} />
               )}
               {activeTab === 'Console' && (
                 <div className="flex flex-col">

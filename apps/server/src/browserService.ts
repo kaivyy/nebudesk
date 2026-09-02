@@ -1,5 +1,6 @@
 import { chromium } from 'playwright-core';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
+import { isUrlAllowed } from './urlValidator.js';
 
 let browserInstance: Browser | null = null;
 const activePages = new Map<string, { context: BrowserContext; page: Page; cdpSession: any; ws: any }>();
@@ -90,10 +91,15 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
 
   // Navigate to initial URL
   if (initialUrl) {
-    try {
-      await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    } catch(e) {
-      safeSend(ws, { type: 'error', message: `Navigation failed: ${(e as Error).message}` });
+    const check = await isUrlAllowed(initialUrl);
+    if (!check.allowed) {
+      safeSend(ws, { type: 'error', message: `Navigation blocked: ${check.reason}` });
+    } else {
+      try {
+        await page.goto(initialUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      } catch(e) {
+        safeSend(ws, { type: 'error', message: `Navigation failed: ${(e as Error).message}` });
+      }
     }
   }
 
@@ -121,10 +127,38 @@ export async function closeBrowserSession(id: string) {
 export async function navigateBrowser(id: string, url: string) {
   const session = activePages.get(id);
   if (!session || !url) return;
+  
+  const check = await isUrlAllowed(url);
+  if (!check.allowed) {
+    safeSend(session.ws, { type: 'error', message: `Navigation blocked: ${check.reason}` });
+    return;
+  }
+  
   try {
     await session.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
   } catch(e) {
     safeSend(session.ws, { type: 'error', message: `Navigation failed: ${(e as Error).message}` });
+  }
+}
+
+export async function goBack(id: string) {
+  const session = activePages.get(id);
+  if (session) {
+    try { await session.page.goBack({ timeout: 10000 }); } catch (e) {}
+  }
+}
+
+export async function goForward(id: string) {
+  const session = activePages.get(id);
+  if (session) {
+    try { await session.page.goForward({ timeout: 10000 }); } catch (e) {}
+  }
+}
+
+export async function reloadPage(id: string) {
+  const session = activePages.get(id);
+  if (session) {
+    try { await session.page.reload({ timeout: 10000 }); } catch (e) {}
   }
 }
 
