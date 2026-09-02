@@ -487,7 +487,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       try {
         const baseUrl = `http://${window.location.hostname}:3030`;
         const res = await fetch(`${baseUrl}/api/files/search?p=${encodeURIComponent(workspace)}&q=${encodeURIComponent(qoQuery)}`, { credentials: 'include' });
-        if (res.ok) setQoResults(await res.json());
+        if (res.ok) { const data = await res.json(); setQoResults(Array.isArray(data) ? data : data.results || []); }
       } catch(e) {}
     }, 200);
     return () => clearTimeout(timer);
