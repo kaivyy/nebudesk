@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader, Keyboard } from 'lucide-react';
 
 import DOMInspector from './DOMInspector';
 
@@ -167,11 +167,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    setKeyboardPos({ x: e.clientX, y: e.clientY });
-    setTimeout(() => {
-      hiddenInputRef.current?.focus();
-    }, 10);
-    
     sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
     setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
@@ -209,7 +204,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
     if (!touchState.current.scrolling) {
-      setTimeout(() => hiddenInputRef.current?.focus(), 10);
       const rect = e.currentTarget.getBoundingClientRect();
       const x = touchState.current.startX - rect.left;
       const y = touchState.current.startY - rect.top;
@@ -299,6 +293,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
           </button>
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => setInput('http://localhost:5050')}>
             <Home size={16} />
+          </button>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1 md:hidden" title="Toggle Virtual Keyboard" onClick={() => hiddenInputRef.current?.focus()}>
+            <Keyboard size={16} />
           </button>
           <button className={`p-1.5 rounded ml-1 ${devMode ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} title="Toggle DevTools Panel" onClick={() => setDevMode(!devMode)}>
             <Code size={16} />

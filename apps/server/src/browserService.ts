@@ -30,7 +30,11 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   const browser = await getBrowser();
   const context = await browser.newContext({ 
     viewport: { width, height },
-    deviceScaleFactor: dpr
+    deviceScaleFactor: dpr,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+  });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
   const page = await context.newPage();
   const cdpSession = await context.newCDPSession(page);
