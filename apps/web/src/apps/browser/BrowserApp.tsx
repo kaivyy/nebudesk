@@ -1,11 +1,47 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code } from 'lucide-react';
 
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [input, setInput] = useState(initialUrl);
   const [devMode, setDevMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('Console');
+  const [consoleLogs, setConsoleLogs] = useState<any[]>([]);
+  const [networkRequests, setNetworkRequests] = useState<any[]>([]);
+  const [domContent, setDomContent] = useState<string>('Loading DOM...');
+  const wsRef = useRef<WebSocket | null>(null);
 
+  useEffect(() => {
+    if (!devMode) {
+      wsRef.current?.close();
+      return;
+    }
+    const wsUrl = `ws://${window.location.hostname}:3030/ws/browser`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ action: 'init', url }));
+      ws.send(JSON.stringify({ action: 'getDOM' }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'console') {
+          setConsoleLogs(prev => [...prev, msg.data]);
+        } else if (msg.type === 'network') {
+          setNetworkRequests(prev => [...prev, msg.data]);
+        } else if (msg.type === 'dom') {
+          setDomContent(JSON.stringify(msg.data, null, 2));
+        }
+      } catch (e) {}
+    };
+
+    return () => ws.close();
+  }, [devMode]); // Intentionally not including url to avoid reconnecting on every navigate
+
+  // Intercept handleNavigate to send URL to backend when devMode is active
   const getProxiedUrl = (target: string) => {
     if (target.includes('localhost') || target.includes('127.0.0.1')) return target;
     const baseUrl = `http://${window.location.hostname}:3030`;
@@ -13,6 +49,12 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   };
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  const handleReload = () => {
+    if (iframeRef.current) {
+      iframeRef.current.src = url;
+    }
+  };
 
   const handleNavigate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +70,12 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     
     setUrl(target);
     setInput(target);
-  };
-
-  const handleReload = () => {
-    if (iframeRef.current) {
-      iframeRef.current.src = url;
+    if (devMode && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'navigate', url: target }));
+      setTimeout(() => wsRef.current?.send(JSON.stringify({ action: 'getDOM' })), 2000);
     }
   };
+
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -84,14 +125,44 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
           />
         </div>
         {devMode && (
-          <div className="flex-1 bg-[#242424] text-[#d4d4d4] flex flex-col overflow-hidden text-sm font-mono">
-            <div className="h-8 border-b border-[#3c3c3c] bg-[#2d2d2d] flex items-center px-4 space-x-4">
-              <button className="text-white border-b-2 border-blue-500 h-full px-1">Elements</button>
-              <button className="text-gray-400 hover:text-white h-full px-1">Console</button>
-              <button className="text-gray-400 hover:text-white h-full px-1">Network</button>
+          <div className="flex-1 bg-[#242424] text-[#d4d4d4] flex flex-col overflow-hidden text-[12px] font-mono">
+            <div className="h-8 border-b border-[#3c3c3c] bg-[#2d2d2d] flex items-center px-4 space-x-4 shrink-0">
+              {['Elements', 'Console', 'Network'].map(tab => (
+                <button 
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`h-full px-1 ${activeTab === tab ? 'text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-white'}`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
-            <div className="flex-1 p-4 overflow-auto">
-              <div>Waiting for WebSocket connection to Chromium CDP...</div>
+            <div className="flex-1 overflow-auto bg-[#1e1e1e]">
+              {activeTab === 'Elements' && (
+                <pre className="p-4 text-gray-300 whitespace-pre-wrap">{domContent}</pre>
+              )}
+              {activeTab === 'Console' && (
+                <div className="flex flex-col">
+                  {consoleLogs.map((log, i) => (
+                    <div key={i} className="border-b border-[#3c3c3c] px-4 py-1 hover:bg-[#2a2d2a]">
+                      <span className="text-gray-500 mr-2">[{log.message?.level}]</span>
+                      <span className={log.message?.level === 'error' ? 'text-red-400' : 'text-gray-300'}>{log.message?.text}</span>
+                    </div>
+                  ))}
+                  {consoleLogs.length === 0 && <div className="p-4 text-gray-500">No console output...</div>}
+                </div>
+              )}
+              {activeTab === 'Network' && (
+                <div className="flex flex-col">
+                  {networkRequests.map((req, i) => (
+                    <div key={i} className="border-b border-[#3c3c3c] px-4 py-1 hover:bg-[#2a2d2a] truncate">
+                      <span className="text-blue-400 mr-2">{req.request?.method}</span>
+                      <span className="text-gray-300">{req.request?.url}</span>
+                    </div>
+                  ))}
+                  {networkRequests.length === 0 && <div className="p-4 text-gray-500">No network requests...</div>}
+                </div>
+              )}
             </div>
           </div>
         )}

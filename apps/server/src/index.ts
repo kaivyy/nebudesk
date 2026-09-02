@@ -523,8 +523,25 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
 
 fastify.get('/ws/browser', { websocket: true }, (connection: any, req: any) => {
   const id = req.id;
+  
   connection.socket.on('message', async (message: any) => {
-    // Handle URL navigation and DevTools commands
+    try {
+      const data = JSON.parse(message.toString());
+      if (data.action === 'init') {
+        const { createBrowserSession } = await import('./browserService.js');
+        await createBrowserSession(id, data.url, connection.socket);
+      } else if (data.action === 'navigate') {
+        // Need to expose navigate to browserService
+        const { navigateBrowser } = await import('./browserService.js');
+        await navigateBrowser(id, data.url);
+      } else if (data.action === 'getDOM') {
+        const { getDOM } = await import('./browserService.js');
+        const dom = await getDOM(id);
+        connection.socket.send(JSON.stringify({ type: 'dom', data: dom }));
+      }
+    } catch (e) {
+      console.error(e);
+    }
   });
   connection.socket.on('close', () => {
     import('./browserService.js').then(m => m.closeBrowserSession(id));

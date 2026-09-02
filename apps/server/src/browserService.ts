@@ -38,3 +38,21 @@ export async function closeBrowserSession(id: string) {
     activePages.delete(id);
   }
 }
+
+export async function navigateBrowser(id: string, url: string) {
+  const session = activePages.get(id);
+  if (session && url) {
+    await session.page.goto(url).catch(() => {});
+  }
+}
+
+export async function getDOM(id: string) {
+  const session = activePages.get(id);
+  if (!session) return null;
+  try {
+    const root = await session.cdpSession.send('DOM.getDocument', { depth: -1 });
+    return root;
+  } catch(e) {
+    return null;
+  }
+}
