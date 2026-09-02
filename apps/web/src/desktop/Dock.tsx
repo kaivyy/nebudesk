@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useWindowStore } from '../stores/windowStore';
 
 export default function Dock() {
@@ -34,28 +35,49 @@ export default function Dock() {
     { id: 'settings', title: 'System Settings', icon: '/icons/settings.png' }
   ];
 
+  const { dockAutoHide } = useWindowStore();
+  const [isHovered, setIsHovered] = useState(false);
+
+  // If autoHide is true, translate down if not hovered.
+  // Note: we use Tailwind transform classes for the animation.
+  const isHidden = dockAutoHide && !isHovered;
+
   return (
-    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-16px)] overflow-x-auto bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl p-2 flex space-x-2 z-[9999] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-      {apps.map(app => {
-        const isOpen = windows.some(w => w.appId === app.id);
-        return (
-          <div key={app.id} className="relative flex flex-col items-center flex-shrink-0 group">
-            <button 
-              onClick={() => handleAppClick(app.id, app.title)}
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none"
-              title={app.title}
-            >
-              <img src={app.icon} alt={app.title} className="w-full h-full object-contain drop-shadow-md" />
-            </button>
-            {isOpen && <div className="absolute -bottom-1 w-1 h-1 bg-white/80 rounded-full"></div>}
-            
-            {/* macOS Tooltip */}
-            <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-black/60 backdrop-blur-md text-white text-xs px-3 py-1 rounded-md whitespace-nowrap shadow-lg border border-white/10">
-              {app.title}
+    <>
+      {/* Invisible trigger zone at the bottom to catch mouse when dock is hidden */}
+      {dockAutoHide && (
+        <div 
+          className="absolute bottom-0 left-0 w-full h-8 z-[9998]"
+          onMouseEnter={() => setIsHovered(true)}
+        />
+      )}
+      
+      <div 
+        className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-16px)] overflow-x-auto bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl p-2 flex space-x-2 z-[9999] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHidden ? 'translate-y-[150%]' : 'translate-y-0'}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {apps.map(app => {
+          const isOpen = windows.some(w => w.appId === app.id);
+          return (
+            <div key={app.id} className="relative flex flex-col items-center flex-shrink-0 group">
+              <button 
+                onClick={() => handleAppClick(app.id, app.title)}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none"
+                title={app.title}
+              >
+                <img src={app.icon} alt={app.title} className="w-full h-full object-contain drop-shadow-md" />
+              </button>
+              {isOpen && <div className="absolute -bottom-1 w-1 h-1 bg-white/80 rounded-full"></div>}
+              
+              {/* macOS Tooltip */}
+              <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none bg-black/60 backdrop-blur-md text-white text-xs px-3 py-1 rounded-md whitespace-nowrap shadow-lg border border-white/10">
+                {app.title}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

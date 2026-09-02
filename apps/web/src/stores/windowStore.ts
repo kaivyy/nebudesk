@@ -27,9 +27,16 @@ export interface WindowState {
   updateSize: (id: string, width: number, height: number, x?: number, y?: number) => void;
   minimizeWindow: (id: string) => void;
   maximizeWindow: (id: string) => void;
+  dockAutoHide: boolean;
+  setDockAutoHide: (val: boolean) => void;
 }
 
 export const useWindowStore = create<WindowState>((set) => ({
+  dockAutoHide: localStorage.getItem('nebudesk_dock_autohide') === 'true',
+  setDockAutoHide: (val: boolean) => set(() => {
+    localStorage.setItem('nebudesk_dock_autohide', val.toString());
+    return { dockAutoHide: val };
+  }),
   windows: [],
   highestZIndex: 0,
   openWindow: (win, forceNew = false) => set((state) => {
