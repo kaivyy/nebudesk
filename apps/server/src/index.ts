@@ -596,12 +596,17 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
       html = baseTag + html;
     }
     
-    // Rewrite form actions to go through our proxy (absolute URL)
+    // Rewrite form actions to go through our proxy using a PATH parameter (hex encoded)
+    // This prevents the browser from stripping the target URL when it submits a GET form
     html = html.replace(/action="\/([^"]*)"/gi, (match: string, path: string) => {
-      return `action="${proxyBase}${encodeURIComponent(origin + '/' + path)}"`;
+      const fullTarget = origin + '/' + path.replace(/^\//, '');
+      const hexUrl = Buffer.from(fullTarget).toString('hex');
+      return `action="http://${reqHost}/api/browser/proxy_form/${hexUrl}"`;
     });
     html = html.replace(/action='\/([^']*)'/gi, (match: string, path: string) => {
-      return `action='${proxyBase}${encodeURIComponent(origin + '/' + path)}'`;
+      const fullTarget = origin + '/' + path.replace(/^\//, '');
+      const hexUrl = Buffer.from(fullTarget).toString('hex');
+      return `action='http://${reqHost}/api/browser/proxy_form/${hexUrl}'`;
     });
     
     // Inject a script that intercepts all navigation and form submissions
@@ -668,6 +673,30 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
     return reply.status(500).send({ error: err.message });
   }
 });
+
+// Browser Proxy Form Handler
+fastify.get('/api/browser/proxy_form/:hexUrl', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+  const { hexUrl } = request.params as { hexUrl: string };
+  if (!hexUrl) return reply.status(400).send({ error: 'URL is required' });
+  
+  try {
+    const targetBaseUrl = Buffer.from(hexUrl, 'hex').toString('utf8');
+    
+    // Fastify request.query is an object. We need to serialize it back to a query string.
+    const queryParams = new URLSearchParams(request.query as Record<string, string>).toString();
+    
+    const finalTargetUrl = queryParams ? `${targetBaseUrl}?${queryParams}` : targetBaseUrl;
+    
+    // Redirect back to the standard proxy URL so the iframe loads it properly
+    const reqHost = (request.headers.host || request.headers[':authority'] || `${request.hostname}:3030`) as string;
+    const redirectUrl = `http://${reqHost}/api/browser/proxy?url=${encodeURIComponent(finalTargetUrl)}`;
+    
+    return reply.redirect(302, redirectUrl);
+  } catch (err: any) {
+    return reply.status(500).send({ error: 'Invalid proxy form URL' });
+  }
+});
+
 // Documents API
 fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
   const { type } = request.query as { type?: string };
