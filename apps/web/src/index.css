@@ -8,16 +8,16 @@ html, body, #root {
 
 @keyframes window-open {
   0% { 
-    transform: perspective(1000px) rotateX(15deg) scale(0.4) translateY(40vh); 
+    transform: translate(var(--tx, 0px), var(--ty, 50vh)) scale(0.1); 
     opacity: 0; 
   }
   100% { 
-    transform: perspective(1000px) rotateX(0deg) scale(1) translateY(0); 
+    transform: translate(0px, 0px) scale(1); 
     opacity: 1; 
   }
 }
 .animate-window-open {
-  transform-origin: center bottom;
-  animation: window-open 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center center;
+  animation: window-open 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

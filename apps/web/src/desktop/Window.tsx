@@ -102,9 +102,20 @@ export default function Window({ win, children }: WindowProps) {
 
   if (win.minimized) return null;
 
+  const APP_ORDER = ['files', 'browser', 'code', 'terminal', 'tasks', 'docker', 'services', 'docs', 'sheet', 'slides', 'manager', 'settings'];
+  const appIndex = Math.max(0, APP_ORDER.indexOf(win.appId));
+  const dockIconX = window.innerWidth / 2 + (appIndex - 5.5) * 60;
+  const dockIconY = window.innerHeight - 30;
+  
+  const windowCenterX = win.maximized ? window.innerWidth / 2 : win.x + win.width / 2;
+  const windowCenterY = win.maximized ? window.innerHeight / 2 : win.y + win.height / 2;
+  
+  const tx = dockIconX - windowCenterX;
+  const ty = dockIconY - windowCenterY;
+
   const style = win.maximized 
-    ? { top: 0, left: 0, width: '100%', height: 'calc(100% - 88px)', zIndex: win.zIndex } 
-    : { top: win.y, left: win.x, width: win.width, height: win.height, zIndex: win.zIndex };
+    ? { top: 0, left: 0, width: '100%', height: 'calc(100% - 88px)', zIndex: win.zIndex, '--tx': `${tx}px`, '--ty': `${ty}px` } as React.CSSProperties
+    : { top: win.y, left: win.x, width: win.width, height: win.height, zIndex: win.zIndex, '--tx': `${tx}px`, '--ty': `${ty}px` } as React.CSSProperties;
 
   return (
     <div 
