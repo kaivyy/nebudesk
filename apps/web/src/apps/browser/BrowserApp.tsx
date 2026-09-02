@@ -114,7 +114,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const isUrl = /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(target) || target.startsWith('http://') || target.startsWith('https://') || target.startsWith('localhost') || target.startsWith('127.0.0.1');
 
     if (!isUrl) {
-      target = `https://www.google.com/search?q=${encodeURIComponent(target)}`;
+      target = `https://www.bing.com/search?q=${encodeURIComponent(target)}`;
     } else if (!target.startsWith('http://') && !target.startsWith('https://')) {
       target = 'https://' + target;
     }
