@@ -102,10 +102,15 @@ export default function Window({ win, children }: WindowProps) {
 
   if (win.minimized) return null;
 
-  const APP_ORDER = ['files', 'browser', 'code', 'terminal', 'tasks', 'docker', 'services', 'docs', 'sheet', 'slides', 'manager', 'settings'];
-  const appIndex = Math.max(0, APP_ORDER.indexOf(win.appId));
-  const dockIconX = window.innerWidth / 2 + (appIndex - 5.5) * 60;
-  const dockIconY = window.innerHeight - 30;
+  // Dynamically query the exact DOM element of the Dock icon to calculate the origin
+  let dockIconX = window.innerWidth / 2;
+  let dockIconY = window.innerHeight;
+  const dockBtn = document.querySelector(`[data-dock-id="${win.appId}"]`);
+  if (dockBtn) {
+    const rect = dockBtn.getBoundingClientRect();
+    dockIconX = rect.left + rect.width / 2;
+    dockIconY = rect.top + rect.height / 2;
+  }
   
   const windowCenterX = win.maximized ? window.innerWidth / 2 : win.x + win.width / 2;
   const windowCenterY = win.maximized ? window.innerHeight / 2 : win.y + win.height / 2;

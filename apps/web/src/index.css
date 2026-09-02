@@ -18,6 +18,6 @@ html, body, #root {
 }
 .animate-window-open {
   transform-origin: center center;
-  animation: window-open 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: window-open 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 

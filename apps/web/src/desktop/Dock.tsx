@@ -62,6 +62,7 @@ export default function Dock() {
           return (
             <div key={app.id} className="relative flex flex-col items-center flex-shrink-0 group">
               <button 
+                data-dock-id={app.id}
                 onClick={() => handleAppClick(app.id, app.title)}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none"
                 title={app.title}
