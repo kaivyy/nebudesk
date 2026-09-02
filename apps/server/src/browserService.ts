@@ -75,7 +75,7 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   // Start screencast — streams JPEG frames of the page
   await cdpSession.send('Page.startScreencast', {
     format: 'jpeg',
-    quality: 60,
+    quality: 80,
     everyNthFrame: 2,
   });
 
@@ -177,23 +177,41 @@ export async function getDOM(id: string) {
   }
 }
 
-// Mouse/keyboard input forwarding from frontend
-export async function dispatchInput(id: string, event: any) {
+// Mouse/keyboard input forwarding from frontend — uses raw CDP for speed
+export function dispatchInput(id: string, event: any) {
   const session = activePages.get(id);
   if (!session) return;
+  const cdp = session.cdpSession;
   try {
     if (event.type === 'mousemove') {
-      await session.page.mouse.move(event.x, event.y);
+      cdp.send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved', x: event.x, y: event.y,
+      });
     } else if (event.type === 'mousedown') {
-      await session.page.mouse.down();
+      cdp.send('Input.dispatchMouseEvent', {
+        type: 'mousePressed', x: event.x, y: event.y,
+        button: 'left', clickCount: 1,
+      });
     } else if (event.type === 'mouseup') {
-      await session.page.mouse.up();
+      cdp.send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased', x: event.x, y: event.y,
+        button: 'left', clickCount: 0,
+      });
     } else if (event.type === 'keydown') {
-      if (event.key) await session.page.keyboard.down(event.key);
+      cdp.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: event.key || '',
+        text: event.key?.length === 1 ? event.key : '',
+        code: event.code || '',
+      });
     } else if (event.type === 'keyup') {
-      if (event.key) await session.page.keyboard.up(event.key);
+      cdp.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: event.key || '', code: event.code || '',
+      });
     } else if (event.type === 'scroll') {
-      await session.page.mouse.wheel(event.deltaX, event.deltaY);
+      cdp.send('Input.dispatchMouseEvent', {
+        type: 'mouseWheel', x: event.x || 0, y: event.y || 0,
+        deltaX: event.deltaX || 0, deltaY: event.deltaY || 0,
+      });
     }
   } catch(e) {}
 }

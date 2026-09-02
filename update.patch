@@ -1,0 +1,62 @@
+--- apps/web/src/apps/browser/BrowserApp.tsx
++++ apps/web/src/apps/browser/BrowserApp.tsx
+@@ -17,6 +17,7 @@
+   const hiddenInputRef = useRef<HTMLInputElement>(null);
+   const viewportSize = useRef({ width: 1280, height: 720 });
+   const resizeTimer = useRef<any>(null);
++  const touchState = useRef({ x: 0, y: 0, scrolling: false });
+ 
+   useEffect(() => {
+     setLoading(true);
+@@ -177,6 +178,35 @@
+     sendInput({ type: 'scroll', x: (e.clientX - rect.left), y: (e.clientY - rect.top), deltaX: e.deltaX, deltaY: e.deltaY });
+   };
+ 
++  const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
++    const touch = e.touches[0];
++    touchState.current = { x: touch.clientX, y: touch.clientY, scrolling: false };
++    setKeyboardPos({ x: touch.clientX, y: touch.clientY });
++  };
++
++  const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
++    const touch = e.touches[0];
++    const dx = touchState.current.x - touch.clientX;
++    const dy = touchState.current.y - touch.clientY;
++    
++    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
++      touchState.current.scrolling = true;
++      sendInput({ type: 'scroll', deltaX: dx, deltaY: dy });
++      touchState.current.x = touch.clientX;
++      touchState.current.y = touch.clientY;
++    }
++  };
++
++  const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
++    if (!touchState.current.scrolling) {
++      setTimeout(() => hiddenInputRef.current?.focus(), 10);
++      const rect = e.currentTarget.getBoundingClientRect();
++      const x = touchState.current.x - rect.left;
++      const y = touchState.current.y - rect.top;
++      sendInput({ type: 'mousemove', x, y });
++      sendInput({ type: 'mousedown', x, y });
++      setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
++    }
++  };
++
+   const handleMobileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     const val = e.target.value;
+@@ -285,6 +315,9 @@
+                 className="w-full h-full object-contain cursor-pointer"
+-                onClick={handleScreenClick}
+                 onWheel={handleScreenScroll}
++                onTouchStart={handleTouchStart}
++                onTouchMove={handleTouchMove}
++                onTouchEnd={handleTouchEnd}
++                onMouseDown={(e) => {
++                  // Only handle mouse clicks if not touch
++                  if (e.pointerType !== 'touch') {
++                    handleScreenClick(e as any);
++                  }
++                }}
+                 draggable={false}
+               />

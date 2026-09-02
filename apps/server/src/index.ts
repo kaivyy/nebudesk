@@ -521,6 +521,8 @@ fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] 
   return { success: true };
 });
 
+import { createBrowserSession, closeBrowserSession, navigateBrowser, goBack, goForward, reloadPage, resizeBrowser, insertText, getDOM, dispatchInput } from './browserService.js';
+
 fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
   const id = req.id;
   
@@ -528,33 +530,24 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
     try {
       const data = JSON.parse(message.toString());
       if (data.action === 'init') {
-        const { createBrowserSession } = await import('./browserService.js');
         await createBrowserSession(id, data.url, socket, data.width || 1280, data.height || 720, data.dpr || 1);
       } else if (data.action === 'resize') {
-        const { resizeBrowser } = await import('./browserService.js');
         await resizeBrowser(id, data.width, data.height);
       } else if (data.action === 'navigate') {
-        const { navigateBrowser } = await import('./browserService.js');
         await navigateBrowser(id, data.url);
       } else if (data.action === 'back') {
-        const { goBack } = await import('./browserService.js');
         await goBack(id);
       } else if (data.action === 'forward') {
-        const { goForward } = await import('./browserService.js');
         await goForward(id);
       } else if (data.action === 'reload') {
-        const { reloadPage } = await import('./browserService.js');
         await reloadPage(id);
       } else if (data.action === 'insertText') {
-        const { insertText } = await import('./browserService.js');
         await insertText(id, data.text);
       } else if (data.action === 'getDOM') {
-        const { getDOM } = await import('./browserService.js');
         const dom = await getDOM(id);
         socket.send(JSON.stringify({ type: 'dom', data: dom }));
       } else if (data.action === 'input') {
-        const { dispatchInput } = await import('./browserService.js');
-        await dispatchInput(id, data.event);
+        dispatchInput(id, data.event); // fire-and-forget, no await
       }
     } catch (err) {
       console.error('WS Error:', err);
@@ -562,7 +555,6 @@ fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
   });
 
   socket.on('close', async () => {
-    const { closeBrowserSession } = await import('./browserService.js');
     await closeBrowserSession(id);
   });
 });
