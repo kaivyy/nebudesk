@@ -4,7 +4,6 @@ import { ArrowLeft, ArrowRight, RotateCw, Home, Globe, Code, Loader, Keyboard } 
 import DOMInspector from './DOMInspector';
 
 export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { initialUrl?: string }) {
-  // Try to load last URL from localStorage, fallback to initialUrl
   const [input, setInput] = useState(() => {
     try { return localStorage.getItem('nebu_browser_last_url') || initialUrl; }
     catch(e) { return initialUrl; }
@@ -23,6 +22,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const viewportSize = useRef({ width: 1280, height: 720 });
   const resizeTimer = useRef<any>(null);
   const touchState = useRef({ startX: 0, startY: 0, x: 0, y: 0, scrolling: false });
@@ -43,7 +43,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
       }
       ws.send(JSON.stringify({ 
         action: 'init', 
-        url: input, // Use the localStorage loaded input
+        url: input,
         width: viewportSize.current.width,
         height: viewportSize.current.height,
         dpr
@@ -99,7 +99,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         ws.close();
       }
     };
-  }, []); // Run once on mount
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -162,32 +162,51 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     }
   }, []);
 
-  const handleScreenClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    if (autoKeyboard) {
-      
-      hiddenInputRef.current?.focus();
+  // Convert screen pixel coordinates to Chromium viewport coordinates.
+  // The <img> uses object-contain so the rendered image may be letterboxed.
+  // We must map clicks to the image's internal coordinate space.
+  const toViewportCoords = (clientX: number, clientY: number, el: HTMLImageElement) => {
+    const rect = el.getBoundingClientRect();
+    const imgW = el.naturalWidth || viewportSize.current.width;
+    const imgH = el.naturalHeight || viewportSize.current.height;
+
+    const scale = Math.min(rect.width / imgW, rect.height / imgH);
+    const renderedW = imgW * scale;
+    const renderedH = imgH * scale;
+    const offsetX = (rect.width - renderedW) / 2;
+    const offsetY = (rect.height - renderedH) / 2;
+
+    const x = ((clientX - rect.left - offsetX) / renderedW) * viewportSize.current.width;
+    const y = ((clientY - rect.top - offsetY) / renderedH) * viewportSize.current.height;
+
+    return {
+      x: Math.max(0, Math.min(viewportSize.current.width, Math.round(x))),
+      y: Math.max(0, Math.min(viewportSize.current.height, Math.round(y)))
+    };
+  };
+
+  const focusKeyboard = () => {
+    if (autoKeyboard && hiddenInputRef.current) {
+      hiddenInputRef.current.focus();
     }
-    
+  };
+
+  const handleScreenClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    const { x, y } = toViewportCoords(e.clientX, e.clientY, e.currentTarget);
+    focusKeyboard();
     sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
     setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
   };
 
   const handleScreenScroll = (e: React.WheelEvent<HTMLImageElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    sendInput({ type: 'scroll', x: (e.clientX - rect.left), y: (e.clientY - rect.top), deltaX: e.deltaX, deltaY: e.deltaY });
+    const { x, y } = toViewportCoords(e.clientX, e.clientY, e.currentTarget);
+    sendInput({ type: 'scroll', x, y, deltaX: e.deltaX, deltaY: e.deltaY });
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
     const touch = e.touches[0];
     touchState.current = { startX: touch.clientX, startY: touch.clientY, x: touch.clientX, y: touch.clientY, scrolling: false };
-    if (autoKeyboard) {
-      
-    }
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
@@ -210,12 +229,8 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
     if (!touchState.current.scrolling) {
-      if (autoKeyboard) {
-        hiddenInputRef.current?.focus();
-      }
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = touchState.current.startX - rect.left;
-      const y = touchState.current.startY - rect.top;
+      focusKeyboard();
+      const { x, y } = toViewportCoords(touchState.current.startX, touchState.current.startY, e.currentTarget);
       sendInput({ type: 'mousemove', x, y });
       sendInput({ type: 'mousedown', x, y });
       setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
@@ -235,7 +250,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
         wsRef.current.send(JSON.stringify({ action: 'input', event: { type: 'keyup', key: 'Backspace' } }));
       }
     }
-    setMobileText(" "); // Reset to single space so backspace always works
+    setMobileText(" ");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -339,7 +354,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             type="text"
             value={mobileText}
             onChange={handleMobileInputChange}
-            style={{ position: 'fixed', top: 0, left: 0, width: 20, height: 20, opacity: 0.01, zIndex: 10, pointerEvents: 'none' }}
+            style={{ position: 'fixed', top: -50, left: 0, width: 1, height: 1, opacity: 0, zIndex: -1 }}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
@@ -354,6 +369,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             )}
             {screenFrame && (
               <img
+                ref={imgRef}
                 src={screenFrame}
                 alt="Browser"
                 className="w-full h-full object-contain cursor-pointer"
@@ -363,7 +379,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 onMouseDown={(e) => {
-                  // Only process mouse events if it's a real mouse (prevent duplicate events on touch)
                   if ((e.nativeEvent as any).pointerType !== 'touch') {
                     handleScreenClick(e);
                   }
