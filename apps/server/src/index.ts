@@ -531,16 +531,18 @@ fastify.get('/ws/browser', { websocket: true }, (connection: any, req: any) => {
         const { createBrowserSession } = await import('./browserService.js');
         await createBrowserSession(id, data.url, connection.socket);
       } else if (data.action === 'navigate') {
-        // Need to expose navigate to browserService
         const { navigateBrowser } = await import('./browserService.js');
         await navigateBrowser(id, data.url);
       } else if (data.action === 'getDOM') {
         const { getDOM } = await import('./browserService.js');
         const dom = await getDOM(id);
         connection.socket.send(JSON.stringify({ type: 'dom', data: dom }));
+      } else if (data.action === 'input') {
+        const { dispatchInput } = await import('./browserService.js');
+        await dispatchInput(id, data.event);
       }
     } catch (e) {
-      console.error(e);
+      console.error('WS browser error:', e);
     }
   });
   connection.socket.on('close', () => {
@@ -573,6 +575,36 @@ fastify.get('/api/browser/proxy', { preValidation: [fastify.authenticate] }, asy
     } else {
       html = baseTag + html;
     }
+    const scriptTag = `
+      <script>
+        document.addEventListener('click', function(e) {
+          const a = e.target.closest('a');
+          if (a && a.href) {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: a.href }, '*');
+          }
+        }, true);
+        document.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const form = e.target;
+          const formData = new FormData(form);
+          const params = new URLSearchParams(formData);
+          let actionUrl = form.action || window.location.href;
+          if (form.method.toLowerCase() === 'get') {
+            const urlObj = new URL(actionUrl);
+            urlObj.search = params.toString();
+            actionUrl = urlObj.toString();
+          }
+          window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: actionUrl }, '*');
+        }, true);
+      </script>
+    `;
+    if (html.includes('</body>')) {
+      html = html.replace('</body>', scriptTag + '</body>');
+    } else {
+      html += scriptTag;
+    }
+
 
     // Strip restrictive headers
     reply.header('Content-Type', res.headers.get('content-type') || 'text/html');
