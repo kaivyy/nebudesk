@@ -54,6 +54,19 @@ echo "--> Installing Backend Dependencies..."
 cd $DIR/apps/server
 npm install
 
+echo "-----------------------------------------"
+echo "NebuBrowser requires Chromium to function."
+echo "Chromium uses ~300MB of disk space and requires some RAM."
+read -p "Do you want to install Chromium now? (y/N): " install_chromium
+if [[ "$install_chromium" =~ ^[Yy]$ ]]; then
+    echo "--> Installing Chromium via Playwright..."
+    npx playwright install chromium
+    npx playwright install-deps chromium
+else
+    echo "--> Skipping Chromium installation. NebuBrowser will show a prompt if opened."
+fi
+echo "-----------------------------------------"
+
 # Frontend
 echo "--> Installing & Building Frontend..."
 cd $DIR/apps/web

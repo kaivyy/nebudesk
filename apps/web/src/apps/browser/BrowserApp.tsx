@@ -14,6 +14,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [networkRequests, setNetworkRequests] = useState<any[]>([]);
   const [domContent, setDomContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [screenFrame, setScreenFrame] = useState<string>('');
   
   const [mobileText, setMobileText] = useState(" ");
@@ -81,12 +82,14 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             setInput(msg.url);
             try { localStorage.setItem('nebu_browser_last_url', msg.url); } catch(e) {}
             setLoading(false);
+            setError(null);
             setConsoleLogs([]);
             setNetworkRequests([]);
             setDomContent(null);
             break;
           case 'error':
             setLoading(false);
+            setError(msg.message);
             break;
         }
       } catch (e) {}
@@ -372,14 +375,22 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
             autoCapitalize="off"
             spellCheck="false"
           />
-          <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden">
-            {loading && !screenFrame && (
+          <div ref={canvasRef} className="w-full h-full bg-black flex items-center justify-center overflow-hidden relative">
+            {loading && !screenFrame && !error && (
               <div className="flex flex-col items-center text-gray-400">
                 <Loader size={24} className="animate-spin mb-2" />
                 <span className="text-sm">Connecting to Chromium...</span>
               </div>
             )}
-            {screenFrame && (
+            {error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-50 p-6">
+                <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 text-white max-w-md text-center">
+                  <div className="font-bold mb-2 text-red-300">Browser Error</div>
+                  <div className="text-sm leading-relaxed">{error}</div>
+                </div>
+              </div>
+            )}
+            {screenFrame && !error && (
               <img
                 ref={imgRef}
                 src={screenFrame}

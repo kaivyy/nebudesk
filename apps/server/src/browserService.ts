@@ -7,10 +7,17 @@ const activePages = new Map<string, { context: BrowserContext; page: Page; cdpSe
 
 export async function getBrowser() {
   if (!browserInstance || !browserInstance.isConnected()) {
-    browserInstance = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-    });
+    try {
+      browserInstance = await chromium.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+      });
+    } catch (e: any) {
+      if (e.message && e.message.includes('Executable doesn\'t exist')) {
+        throw new Error('Chromium is not installed on this server. To enable NebuBrowser, SSH into the server and run:\n\ncd ~/nebudesk/apps/server && npx playwright install chromium');
+      }
+      throw e;
+    }
   }
   return browserInstance;
 }
@@ -27,7 +34,13 @@ export async function createBrowserSession(id: string, initialUrl: string, ws: a
   // Clean up any existing session for this id
   await closeBrowserSession(id);
 
-  const browser = await getBrowser();
+  let browser;
+  try {
+    browser = await getBrowser();
+  } catch (err: any) {
+    safeSend(ws, { type: 'error', message: err.message });
+    return;
+  }
   const context = await browser.newContext({ 
     viewport: { width, height },
     deviceScaleFactor: dpr,
