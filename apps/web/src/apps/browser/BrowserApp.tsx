@@ -19,6 +19,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   
   const [mobileText, setMobileText] = useState(" ");
   const [keyboardPos, setKeyboardPos] = useState({ x: -100, y: -100 });
+  const [autoKeyboard, setAutoKeyboard] = useState(true);
   
   const wsRef = useRef<WebSocket | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -167,6 +168,11 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
+    if (autoKeyboard) {
+      setKeyboardPos({ x: e.clientX, y: e.clientY });
+      setTimeout(() => hiddenInputRef.current?.focus(), 10);
+    }
+    
     sendInput({ type: 'mousemove', x, y });
     sendInput({ type: 'mousedown', x, y });
     setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
@@ -180,7 +186,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
     const touch = e.touches[0];
     touchState.current = { startX: touch.clientX, startY: touch.clientY, x: touch.clientX, y: touch.clientY, scrolling: false };
-    setKeyboardPos({ x: touch.clientX, y: touch.clientY });
+    if (autoKeyboard) {
+      setKeyboardPos({ x: touch.clientX, y: touch.clientY });
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
@@ -188,7 +196,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const totalDx = Math.abs(touch.clientX - touchState.current.startX);
     const totalDy = Math.abs(touch.clientY - touchState.current.startY);
     
-    // If they move more than 15px total from start, it's a drag/scroll, not a tap
     if (totalDx > 15 || totalDy > 15) {
       touchState.current.scrolling = true;
     }
@@ -204,6 +211,9 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
     if (!touchState.current.scrolling) {
+      if (autoKeyboard) {
+        setTimeout(() => hiddenInputRef.current?.focus(), 10);
+      }
       const rect = e.currentTarget.getBoundingClientRect();
       const x = touchState.current.startX - rect.left;
       const y = touchState.current.startY - rect.top;
@@ -294,7 +304,15 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => setInput('http://localhost:5050')}>
             <Home size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1 md:hidden" title="Toggle Virtual Keyboard" onClick={() => hiddenInputRef.current?.focus()}>
+          <button 
+            className={`p-1.5 rounded ml-1 md:hidden ${autoKeyboard ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} 
+            title={autoKeyboard ? "Auto Keyboard: ON" : "Auto Keyboard: OFF"}
+            onClick={() => {
+              const next = !autoKeyboard;
+              setAutoKeyboard(next);
+              if (next) setTimeout(() => hiddenInputRef.current?.focus(), 10);
+            }}
+          >
             <Keyboard size={16} />
           </button>
           <button className={`p-1.5 rounded ml-1 ${devMode ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-200'}`} title="Toggle DevTools Panel" onClick={() => setDevMode(!devMode)}>
