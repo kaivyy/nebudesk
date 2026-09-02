@@ -13,7 +13,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const [loading, setLoading] = useState(true);
   const [screenFrame, setScreenFrame] = useState<string>('');
   
-  // Mobile keyboard states
   const [mobileText, setMobileText] = useState(" ");
   const [keyboardPos, setKeyboardPos] = useState({ x: -100, y: -100 });
   
@@ -22,6 +21,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const viewportSize = useRef({ width: 1280, height: 720 });
   const resizeTimer = useRef<any>(null);
+  const touchState = useRef({ x: 0, y: 0, scrolling: false });
 
   useEffect(() => {
     setLoading(true);
@@ -163,7 +163,6 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     const y = e.clientY - rect.top;
     
     setKeyboardPos({ x: e.clientX, y: e.clientY });
-    // Small delay allows React to move the input before focusing it, tricking iOS/Android
     setTimeout(() => {
       hiddenInputRef.current?.focus();
     }, 10);
@@ -176,6 +175,37 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
   const handleScreenScroll = (e: React.WheelEvent<HTMLImageElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     sendInput({ type: 'scroll', x: (e.clientX - rect.left), y: (e.clientY - rect.top), deltaX: e.deltaX, deltaY: e.deltaY });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLImageElement>) => {
+    const touch = e.touches[0];
+    touchState.current = { x: touch.clientX, y: touch.clientY, scrolling: false };
+    setKeyboardPos({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLImageElement>) => {
+    const touch = e.touches[0];
+    const dx = touchState.current.x - touch.clientX;
+    const dy = touchState.current.y - touch.clientY;
+    
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      touchState.current.scrolling = true;
+      sendInput({ type: 'scroll', deltaX: dx, deltaY: dy });
+      touchState.current.x = touch.clientX;
+      touchState.current.y = touch.clientY;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLImageElement>) => {
+    if (!touchState.current.scrolling) {
+      setTimeout(() => hiddenInputRef.current?.focus(), 10);
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = touchState.current.x - rect.left;
+      const y = touchState.current.y - rect.top;
+      sendInput({ type: 'mousemove', x, y });
+      sendInput({ type: 'mousedown', x, y });
+      setTimeout(() => sendInput({ type: 'mouseup', x, y }), 50);
+    }
   };
 
   const handleMobileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,7 +230,7 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     
     if (target.id === 'mobile-keyboard-trap') {
       if (e.key === 'Unidentified') return;
-      if (e.key === 'Backspace' || e.key.length === 1) return; // Handled by onChange
+      if (e.key === 'Backspace' || e.key.length === 1) return;
     } else {
       e.preventDefault();
     }
@@ -222,19 +252,38 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
     return 'text-red-400';
   };
 
+  const handleBack = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'back' }));
+    }
+  };
+
+  const handleForward = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'forward' }));
+    }
+  };
+
+  const handleReload = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setLoading(true);
+      wsRef.current.send(JSON.stringify({ action: 'reload' }));
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-white" tabIndex={0} onKeyDown={handleKeyDown} onKeyUp={handleKeyUp}>
       <div className="h-14 bg-gray-100 border-b border-gray-300 flex items-center shrink-0 nebudesk-drag-region select-none touch-none px-2">
         <div className="w-[80px] shrink-0"></div>
         
         <div className="flex items-center space-x-1 nebudesk-no-drag">
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={() => wsRef.current?.send(JSON.stringify({ action: 'back' }))}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Back" onClick={handleBack}>
             <ArrowLeft size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={() => wsRef.current?.send(JSON.stringify({ action: 'forward' }))}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Forward" onClick={handleForward}>
             <ArrowRight size={16} />
           </button>
-          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={() => { setLoading(true); wsRef.current?.send(JSON.stringify({ action: 'reload' })); }}>
+          <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200" title="Reload" onClick={handleReload}>
             <RotateCw size={16} />
           </button>
           <button className="p-1.5 rounded text-gray-500 hover:bg-gray-200 ml-1" title="Localhost" onClick={() => setInput('http://localhost:5050')}>
@@ -283,8 +332,16 @@ export default function BrowserApp({ initialUrl = 'http://localhost:5050' }: { i
                 src={screenFrame}
                 alt="Browser"
                 className="w-full h-full object-contain cursor-pointer"
-                onClick={handleScreenClick}
                 onWheel={handleScreenScroll}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={(e) => {
+                  // Only process mouse events if it's a real mouse (prevent duplicate events on touch)
+                  if ((e.nativeEvent as any).pointerType !== 'touch') {
+                    handleScreenClick(e);
+                  }
+                }}
                 draggable={false}
               />
             )}

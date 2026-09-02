@@ -178,29 +178,18 @@ export async function dispatchInput(id: string, event: any) {
   const session = activePages.get(id);
   if (!session) return;
   try {
-    if (event.type === 'mousedown' || event.type === 'mouseup' || event.type === 'mousemove') {
-      await session.cdpSession.send('Input.dispatchMouseEvent', {
-        type: event.type === 'mousedown' ? 'mousePressed' : event.type === 'mouseup' ? 'mouseReleased' : 'mouseMoved',
-        x: event.x,
-        y: event.y,
-        button: 'left',
-        clickCount: event.type === 'mousedown' ? 1 : 0,
-      });
-    } else if (event.type === 'keydown' || event.type === 'keyup') {
-      await session.cdpSession.send('Input.dispatchKeyEvent', {
-        type: event.type === 'keydown' ? 'keyDown' : 'keyUp',
-        key: event.key,
-        text: event.text || '',
-        code: event.code || '',
-      });
+    if (event.type === 'mousemove') {
+      await session.page.mouse.move(event.x, event.y);
+    } else if (event.type === 'mousedown') {
+      await session.page.mouse.down();
+    } else if (event.type === 'mouseup') {
+      await session.page.mouse.up();
+    } else if (event.type === 'keydown') {
+      if (event.key) await session.page.keyboard.down(event.key);
+    } else if (event.type === 'keyup') {
+      if (event.key) await session.page.keyboard.up(event.key);
     } else if (event.type === 'scroll') {
-      await session.cdpSession.send('Input.dispatchMouseEvent', {
-        type: 'mouseWheel',
-        x: event.x,
-        y: event.y,
-        deltaX: event.deltaX || 0,
-        deltaY: event.deltaY || 0,
-      });
+      await session.page.mouse.wheel(event.deltaX, event.deltaY);
     }
   } catch(e) {}
 }
