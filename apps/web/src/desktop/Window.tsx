@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
 import type { DesktopWindow } from '../stores/windowStore';
 
@@ -100,7 +100,18 @@ export default function Window({ win, children }: WindowProps) {
     }
   };
 
-  if (win.minimized) return null;
+  const [shouldRender, setShouldRender] = useState(!win.minimized);
+  
+  useEffect(() => {
+    if (win.minimized) {
+      const timer = setTimeout(() => { setShouldRender(false); }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldRender(true);
+    }
+  }, [win.minimized]);
+
+  if (!shouldRender) return null;
 
   // Dynamically query the exact DOM element of the Dock icon to calculate the origin
   let dockIconX = window.innerWidth / 2;
@@ -124,7 +135,7 @@ export default function Window({ win, children }: WindowProps) {
 
   return (
     <div 
-      className={`animate-window-open absolute flex flex-col overflow-hidden bg-transparent ${win.maximized ? '' : 'rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-black/5'}`}
+      className={`absolute flex flex-col overflow-hidden bg-transparent ${win.minimized ? 'animate-window-minimize pointer-events-none' : 'animate-window-open'} ${win.maximized ? '' : 'rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] ring-1 ring-black/5'}`}
       style={style}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
