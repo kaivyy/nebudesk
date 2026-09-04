@@ -10,49 +10,63 @@ export async function isUrlAllowed(targetUrl: string): Promise<{ allowed: boolea
 
     const hostname = parsed.hostname;
     
-    // Explicitly allow localhost for development
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return { allowed: true };
-    }
-
     // IP address checks
     const isIp = /^[0-9\.]+$/.test(hostname) || hostname.includes(':');
-    let ipsToCheck = [hostname];
+    let ipsToCheck = [hostname.replace(/\[/g, '').replace(/\]/g, '')];
 
-    // If it's a domain, resolve it to prevent basic DNS pointing to internal IPs
-    // (Note: does not prevent advanced DNS rebinding where TTL is 0, but fulfills the basic audit requirement without overly complex proxy layers)
+    // Resolve domains to prevent DNS rebinding to internal IPs
     if (!isIp) {
       try {
         const records = await dns.lookup(hostname, { all: true });
         ipsToCheck = records.map(r => r.address);
-      } catch (e) {
+      } catch {
         return { allowed: false, reason: 'DNS resolution failed.' };
       }
     }
 
-    for (const ip of ipsToCheck) {
+    for (const rawIp of ipsToCheck) {
+      let ip = rawIp;
+
+      // Check IPv4-mapped IPv6 or pure IPv6
+      if (ip.includes(':')) {
+        const lowerIp = ip.toLowerCase();
+        // Block IPv6 loopback (::1) and unspecified (::, ::0)
+        if (lowerIp === '::1' || lowerIp === '::' || lowerIp === '::0') {
+          return { allowed: false, reason: 'IPv6 loopback/unspecified is blocked.' };
+        }
+        // Block IPv4-mapped IPv6 (::ffff:...)
+        if (lowerIp.startsWith('::ffff:') || lowerIp.startsWith('ffff:') || lowerIp.includes(':ffff:')) {
+          return { allowed: false, reason: 'IPv4-mapped IPv6 address is blocked.' };
+        }
+        // Block IPv6 unique local address (fc00::/7)
+        if (lowerIp.startsWith('fc') || lowerIp.startsWith('fd')) {
+          return { allowed: false, reason: 'IPv6 unique local address is blocked.' };
+        }
+        // Block IPv6 link-local (fe80::/10)
+        if (lowerIp.startsWith('fe8') || lowerIp.startsWith('fe9') || lowerIp.startsWith('fea') || lowerIp.startsWith('feb')) {
+          return { allowed: false, reason: 'IPv6 link-local is blocked.' };
+        }
+      }
+
       // IPv4 checks
       if (ip.includes('.')) {
         const parts = ip.split('.').map(Number);
-        if (parts[0] === 10) return { allowed: false, reason: 'Private IP (10.x.x.x) is blocked.' };
-        if (parts[0] === 192 && parts[1] === 168) return { allowed: false, reason: 'Private IP (192.168.x.x) is blocked.' };
-        if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return { allowed: false, reason: 'Private IP (172.16.x.x-172.31.x.x) is blocked.' };
-        if (parts[0] === 169 && parts[1] === 254) return { allowed: false, reason: 'Link-local/Cloud metadata (169.254.x.x) is blocked.' };
-        if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return { allowed: false, reason: 'CGNAT (100.64.x.x) is blocked.' };
-        if (parts[0] === 127 && ip !== '127.0.0.1') return { allowed: false, reason: 'Loopback IP is blocked (use 127.0.0.1 for dev).' };
-      }
-      
-      // IPv6 checks
-      if (ip.includes(':')) {
-        const lowerIp = ip.toLowerCase();
-        if (lowerIp === '::1') return { allowed: false, reason: 'IPv6 loopback is blocked.' };
-        if (lowerIp.startsWith('fc') || lowerIp.startsWith('fd')) return { allowed: false, reason: 'IPv6 unique local address is blocked.' };
-        if (lowerIp.startsWith('fe8') || lowerIp.startsWith('fe9') || lowerIp.startsWith('fea') || lowerIp.startsWith('feb')) return { allowed: false, reason: 'IPv6 link-local is blocked.' };
+        const p0 = parts[0];
+        const p1 = parts[1];
+        if (p0 !== undefined && p1 !== undefined) {
+          if (p0 === 10) return { allowed: false, reason: 'Private IP (10.x.x.x) is blocked.' };
+          if (p0 === 192 && p1 === 168) return { allowed: false, reason: 'Private IP (192.168.x.x) is blocked.' };
+          if (p0 === 172 && p1 >= 16 && p1 <= 31) return { allowed: false, reason: 'Private IP (172.16.x.x-172.31.x.x) is blocked.' };
+          if (p0 === 169 && p1 === 254) return { allowed: false, reason: 'Link-local/Cloud metadata (169.254.x.x) is blocked.' };
+          if (p0 === 100 && p1 >= 64 && p1 <= 127) return { allowed: false, reason: 'CGNAT (100.64.x.x) is blocked.' };
+          if (p0 === 127) return { allowed: false, reason: 'Loopback IP (127.x.x.x) is blocked.' };
+          if (p0 === 0) return { allowed: false, reason: 'Unspecified IP (0.x.x.x) is blocked.' };
+        }
       }
     }
 
     return { allowed: true };
-  } catch (e) {
+  } catch {
     return { allowed: false, reason: 'Invalid URL format.' };
   }
 }

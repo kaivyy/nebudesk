@@ -116,8 +116,9 @@ export async function syncCloudflareDNS(domain: string, action: 'create' | 'dele
       }
       return { success: true };
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("Cloudflare sync error:", err);
-    return { error: err.message };
+    return { error: message };
   }
 }

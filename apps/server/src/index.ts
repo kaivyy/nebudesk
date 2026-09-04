@@ -10,48 +10,111 @@ import path from 'path';
 import * as pty from 'node-pty';
 import si from 'systeminformation';
 import Docker from 'dockerode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import util from 'util';
 import bcrypt from 'bcrypt';
 import { initDb, dbGet, dbRun, dbAll } from './db.js';
+import { safeResolve, ALLOWED_ROOT, ALLOWED_ROOT as WORKSPACE_ALLOWED_ROOT } from './pathUtils.js';
+import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { AuthUser, UserRow, DesktopStateRow, ApplicationRow, DocumentRow, SettingRow, DevServerInfo, SystemServiceInfo } from './types.js';
 
 import registerExtensions from './api_extensions.js';
 import { syncProxyConfig, syncCloudflareDNS } from './proxy.js';
 
-const execAsync = util.promisify(exec);
+const execFileAsync = util.promisify(execFile);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: AuthUser;
+    user: AuthUser;
+  }
+}
 
 declare module 'fastify' {
   interface FastifyInstance {
-    authenticate: any;
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
 const fastify = Fastify({ logger: true });
 await fastify.register(cors, { 
-  origin: true,
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    try {
+      const url = new URL(origin);
+      const host = url.hostname.toLowerCase();
+
+      // Loopback
+      if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1') {
+        return cb(null, true);
+      }
+
+      // Tailscale MagicDNS
+      if (host.endsWith('.ts.net')) {
+        return cb(null, true);
+      }
+
+      // Explicit ALLOWED_ORIGINS
+      if (process.env.ALLOWED_ORIGINS) {
+        const extra = process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim().toLowerCase());
+        if (extra.includes(host) || extra.includes(origin.toLowerCase())) {
+          return cb(null, true);
+        }
+      }
+
+      // Private IPv4 networks & Tailscale CGNAT (100.64.0.0/10)
+      if (/^[0-9.]+$/.test(host)) {
+        const parts = host.split('.').map(Number);
+        const p0 = parts[0];
+        const p1 = parts[1];
+        if (p0 !== undefined && p1 !== undefined) {
+          if (p0 === 10) return cb(null, true);
+          if (p0 === 172 && p1 >= 16 && p1 <= 31) return cb(null, true);
+          if (p0 === 192 && p1 === 168) return cb(null, true);
+          if (p0 === 100 && p1 >= 64 && p1 <= 127) return cb(null, true);
+        }
+      }
+
+      // IPv6 private / Tailscale ULA / link-local
+      if (host.includes(':')) {
+        if (host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80')) {
+          return cb(null, true);
+        }
+      }
+
+      // Deny arbitrary external origins
+      cb(null, false);
+    } catch {
+      cb(new Error('Invalid origin'), false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 });
 await fastify.register(websocket);
-await fastify.register(jwt, { secret: 'nebudesk-super-secret' });
+await initDb();
+const secretRow = await dbGet<SettingRow>("SELECT value FROM Settings WHERE key = 'JWT_SECRET'");
+const jwtSecret = secretRow?.value || 'nebudesk-super-secret';
+await fastify.register(jwt, { secret: jwtSecret });
 await fastify.register(cookie);
 await fastify.register(fastifyMultipart, { limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB limit
 
-await initDb();
-
-fastify.decorate('authenticate', async (request: any, reply: any) => {
+fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const token = request.cookies.token;
     if (!token) throw new Error('No token');
-    const decoded = fastify.jwt.verify(token || '');
+    const decoded = fastify.jwt.verify<AuthUser>(token || '');
     request.user = decoded;
   } catch (err) {
     reply.status(401).send({ error: 'Unauthorized' });
   }
 });
 
-const ALLOWED_ROOT = '/';
+// Unauthenticated health check endpoint for monitoring, load balancers, and installer
+fastify.get('/api/health', async () => {
+  return { status: 'ok', uptime: process.uptime(), timestamp: Date.now() };
+});
 
 fastify.post('/api/auth/login', async (request, reply) => {
   const { username, password } = request.body as any;
@@ -70,9 +133,9 @@ fastify.post('/api/auth/login', async (request, reply) => {
   return { success: true };
 });
 
-fastify.put('/api/auth/profile', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { username, currentPassword, newPassword } = request.body;
-  const user: any = await dbGet('SELECT * FROM User WHERE id = ?', [request.user.id]);
+fastify.put('/api/auth/profile', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { username, currentPassword, newPassword } = (request.body || {}) as { username?: string; currentPassword?: string; newPassword?: string };
+  const user = await dbGet<UserRow>('SELECT * FROM User WHERE id = ?', [request.user.id]);
   if (!user) return reply.status(404).send({ error: 'User not found' });
   
   if (currentPassword && newPassword) {
@@ -92,12 +155,12 @@ fastify.post('/api/auth/logout', async (request, reply) => {
   return { success: true };
 });
 
-fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
   const state = await dbGet(`SELECT * FROM DesktopState WHERE userId = ?`, [request.user.id]);
   return state;
 });
 
-fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { windowsJson } = request.body as any;
   console.log('PATCH /api/desktop', windowsJson);
   await dbRun(`UPDATE DesktopState SET windowsJson = ? WHERE userId = ?`, [windowsJson, request.user.id]);
@@ -105,9 +168,14 @@ fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (
 });
 
 fastify.get('/api/files', { preValidation: [fastify.authenticate] }, async (request, reply) => {
-  const { p = '/' } = request.query as { p: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  const { p = ALLOWED_ROOT } = request.query as { p?: string };
+  let targetPath: string;
+  try {
+    targetPath = await safeResolve(p);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   
   try {
     const items = await fs.readdir(targetPath, { withFileTypes: true });
@@ -119,44 +187,66 @@ fastify.get('/api/files', { preValidation: [fastify.authenticate] }, async (requ
       }
       return { name: item.name, isDir, size };
     }));
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.get('/api/files/content', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p } = request.query as { p: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  let targetPath: string;
+  try {
+    targetPath = await safeResolve(p);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   try {
     const content = await fs.readFile(targetPath, 'utf-8');
     return { content };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === 'ENOENT') {
+      return reply.status(404).send({ error: 'File not found' });
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.put('/api/files/content', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p, content } = request.body as { p: string; content: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  let targetPath: string;
+  try {
+    targetPath = await safeResolve(p);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   try {
     await fs.writeFile(targetPath, content, 'utf-8');
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.get('/api/files/download', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p } = request.query as { p: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  let targetPath: string;
   try {
-    const stream = require('fs').createReadStream(targetPath);
+    targetPath = await safeResolve(p);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
+  try {
+    const stream = (await import('fs')).createReadStream(targetPath);
     return reply.type('application/octet-stream').send(stream);
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -167,12 +257,24 @@ fastify.post('/api/files/upload', { preValidation: [fastify.authenticate] }, asy
   for await (const part of parts) {
     if (part.type === 'file') {
       if (!targetDir) return reply.status(400).send({ error: 'Missing path field' });
-      const targetPath = path.join(targetDir, part.filename.replace(/\//g, ''));
-      if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
-      await require('node:stream/promises').pipeline(part.file, createWriteStream(targetPath));
+      const cleanName = path.basename(part.filename);
+      let targetPath: string;
+      try {
+        targetPath = await safeResolve(path.join(targetDir, cleanName));
+      } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
+      const streamPromises = await import('node:stream/promises');
+      await streamPromises.pipeline(part.file, createWriteStream(targetPath));
     } else {
       if (part.fieldname === 'p') {
-        targetDir = path.resolve(ALLOWED_ROOT, (part.value as string).replace(/^\//, ''));
+        try {
+          targetDir = await safeResolve(part.value as string);
+        } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
       }
     }
   }
@@ -181,44 +283,66 @@ fastify.post('/api/files/upload', { preValidation: [fastify.authenticate] }, asy
 
 fastify.post('/api/files/folder', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p, name } = request.body as { p: string; name: string };
-  const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  const targetPath = path.join(targetDir, name.replace(/\//g, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  const cleanName = path.basename(name);
+  let targetPath: string;
+  try {
+    const targetDir = await safeResolve(p);
+    targetPath = await safeResolve(path.join(targetDir, cleanName));
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   try {
     await fs.mkdir(targetPath);
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.post('/api/files/file', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p, name } = request.body as { p: string; name: string };
-  const targetDir = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  const targetPath = path.join(targetDir, name.replace(/\//g, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT)) return reply.status(403).send({ error: 'Forbidden' });
+  const cleanName = path.basename(name);
+  let targetPath: string;
+  try {
+    const targetDir = await safeResolve(p);
+    targetPath = await safeResolve(path.join(targetDir, cleanName));
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   try {
     await fs.writeFile(targetPath, '');
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.delete('/api/files', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p } = request.query as { p: string };
-  const targetPath = path.resolve(ALLOWED_ROOT, p.replace(/^\//, ''));
-  if (!targetPath.startsWith(ALLOWED_ROOT) || targetPath === ALLOWED_ROOT) return reply.status(403).send({ error: 'Forbidden' });
+  let targetPath: string;
+  try {
+    targetPath = await safeResolve(p);
+    if (targetPath === ALLOWED_ROOT) {
+      return reply.status(403).send({ error: 'Cannot delete workspace root' });
+    }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
   try {
     await fs.rm(targetPath, { recursive: true, force: true });
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
-fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
-  // Simple token check for WS
+fastify.get('/ws/terminal', { websocket: true }, async (connection: any, req) => {
   const cookies = (req.headers.cookie || '').split(';');
   const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
   if (!tokenCookie) {
@@ -226,16 +350,27 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
     return;
   }
   const token = tokenCookie.split('=')[1];
+  let user: any;
   try {
-    fastify.jwt.verify(token || "");
+    user = fastify.jwt.verify(token || "");
   } catch (e) {
     connection.close();
     return;
   }
 
-  const termId = (req.query as any).termId || 'default';
-  const cwd = (req.query as any).cwd || process.env.HOME || '/';
-  const sessionName = `nebudesk_term_${termId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const userId = String(user.id || 'anonymous').replace(/[^a-zA-Z0-9_-]/g, '');
+  const rawTermId = (req.query as any).termId || 'default';
+  const termId = String(rawTermId).replace(/[^a-zA-Z0-9_-]/g, '');
+  const rawCwd = (req.query as any).cwd || ALLOWED_ROOT;
+  let cwd = ALLOWED_ROOT;
+  try {
+    cwd = await safeResolve(rawCwd);
+  } catch {
+    cwd = ALLOWED_ROOT;
+  }
+
+  // Multi-user isolated tmux session name
+  const sessionName = `nebudesk_${userId}_${termId}`;
 
   const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', sessionName, '-c', cwd], {
     name: 'xterm-color',
@@ -267,12 +402,15 @@ fastify.get('/ws/terminal', { websocket: true }, (connection: any, req) => {
 
 fastify.delete('/api/terminal/:termId', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
+    const userId = String(request.user.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
     const { termId } = request.params as { termId: string };
-    const sessionName = `nebudesk_term_${termId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-    exec(`tmux kill-session -t ${sessionName}`, () => {});
+    const cleanTermId = String(termId).replace(/[^a-zA-Z0-9_-]/g, '');
+    const sessionName = `nebudesk_${userId}_${cleanTermId}`;
+    await execFileAsync('tmux', ['kill-session', '-t', sessionName]).catch(() => {});
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -325,24 +463,16 @@ fastify.get('/api/system', { preValidation: [fastify.authenticate] }, async (req
 
 
 
-fastify.post('/api/processes/kill', { preValidation: [fastify.authenticate] }, async (request, reply) => {
-  const { pid } = request.body as { pid: number };
-  if (!pid) return reply.status(400).send({ error: 'PID is required' });
-  try {
-    process.kill(pid, 'SIGKILL');
-    return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
-  }
-});
+
 
 
 fastify.get('/api/pm2/apps', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const { stdout } = await execAsync('pm2 jlist');
+    const { stdout } = await execFileAsync('pm2', ['jlist']);
     return JSON.parse(stdout);
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -350,8 +480,9 @@ fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] },
   try {
     const containers = await docker.listContainers({ all: true });
     return containers;
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -365,16 +496,17 @@ fastify.post('/api/docker/containers/:id/:action', { preValidation: [fastify.aut
     else if (action === 'remove') await container.remove({ force: true });
     else return reply.status(400).send({ error: 'Invalid action' });
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   try {
-    const { stdout } = await execAsync('systemctl list-units --type=service --all --output=json');
+    const { stdout } = await execFileAsync('systemctl', ['list-units', '--type=service', '--all', '--output=json']);
     const parsed = JSON.parse(stdout);
-    const services = parsed.map((s: any) => ({
+    const services: SystemServiceInfo[] = parsed.map((s: { unit: string; load: string; active: string; sub: string; description: string }) => ({
       name: s.unit,
       load: s.load,
       active: s.active,
@@ -382,19 +514,23 @@ fastify.get('/api/services', { preValidation: [fastify.authenticate] }, async (r
       desc: s.description
     }));
     return services;
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
 fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { name } = request.query as { name: string };
   if (!name) return reply.status(400).send({ error: 'Service name required' });
+  const cleanName = String(name).trim();
+  if (!/^[a-zA-Z0-9_.@-]+$/.test(cleanName)) return reply.status(400).send({ error: 'Invalid service name' });
   try {
-    const { stdout } = await execAsync(`journalctl -u ${name} -n 100 --no-pager`);
+    const { stdout } = await execFileAsync('journalctl', ['-u', cleanName, '-n', '100', '--no-pager']);
     return { logs: stdout };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -402,15 +538,15 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
 fastify.get('/api/settings', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   return await dbAll('SELECT key, value FROM Settings');
 });
-fastify.post('/api/settings', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { key, value } = request.body;
+fastify.post('/api/settings', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { key, value } = (request.body || {}) as { key: string; value: string };
   await dbRun('INSERT INTO Settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?', [key, value, value]);
   return { success: true };
 });
 
 // Applications API (Control Panel)
-fastify.post('/api/discovery/action', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { runtime, identifier, action } = request.body;
+fastify.post('/api/discovery/action', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { runtime, identifier, action } = (request.body || {}) as { runtime: string; identifier: string; action: string };
   try {
     if (runtime === 'docker') {
       const container = docker.getContainer(identifier);
@@ -418,16 +554,20 @@ fastify.post('/api/discovery/action', { preValidation: [fastify.authenticate] },
       if (action === 'stop') await container.stop();
       if (action === 'restart') await container.restart();
     } else if (runtime === 'pm2') {
-      await execAsync(`pm2 ${action} ${identifier}`);
+      if (!['start', 'stop', 'restart'].includes(action)) return reply.status(400).send({ error: 'Invalid action' });
+      const cleanId = String(identifier).trim();
+      if (!/^[a-zA-Z0-9_.-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      await execFileAsync('pm2', [action, cleanId]);
     }
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
-fastify.get('/api/discovery/logs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { runtime, identifier } = request.query;
+fastify.get('/api/discovery/logs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { runtime, identifier } = (request.query || {}) as { runtime: string; identifier: string };
   try {
     let logs = '';
     if (runtime === 'docker') {
@@ -435,19 +575,22 @@ fastify.get('/api/discovery/logs', { preValidation: [fastify.authenticate] }, as
       const logBuffer = await container.logs({ stdout: true, stderr: true, tail: 100, timestamps: true });
       logs = logBuffer.toString('utf-8').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '');
     } else if (runtime === 'pm2') {
-      const { stdout } = await execAsync(`pm2 logs ${identifier} --lines 100 --nostream`);
+      const cleanId = String(identifier).trim();
+      if (!/^[a-zA-Z0-9_.-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      const { stdout } = await execFileAsync('pm2', ['logs', cleanId, '--lines', '100', '--nostream']);
       logs = stdout;
     }
     return { logs };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
-fastify.post('/api/applications/:id/action', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { id } = request.params;
-  const { action } = request.body; // 'start' | 'stop' | 'restart'
-  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
+fastify.post('/api/applications/:id/action', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { id } = (request.params || {}) as { id: string };
+  const { action } = (request.body || {}) as { action: string }; // 'start' | 'stop' | 'restart'
+  const app = await dbGet<ApplicationRow>('SELECT * FROM Applications WHERE id = ?', [id]);
   if (!app) return reply.status(404).send({ error: 'App not found' });
 
   try {
@@ -457,19 +600,26 @@ fastify.post('/api/applications/:id/action', { preValidation: [fastify.authentic
       if (action === 'stop') await container.stop();
       if (action === 'restart') await container.restart();
     } else if (app.runtime === 'pm2') {
-      await execAsync(`pm2 ${action} ${app.identifier}`);
+      if (!['start', 'stop', 'restart'].includes(action)) return reply.status(400).send({ error: 'Invalid action' });
+      const cleanId = String(app.identifier).trim();
+      if (!/^[a-zA-Z0-9_.-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      await execFileAsync('pm2', [action, cleanId]);
     } else if (app.runtime === 'systemd') {
-      await execAsync(`sudo systemctl ${action} ${app.identifier}`);
+      if (!['start', 'stop', 'restart'].includes(action)) return reply.status(400).send({ error: 'Invalid action' });
+      const cleanId = String(app.identifier).trim();
+      if (!/^[a-zA-Z0-9_.@-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      await execFileAsync('sudo', ['systemctl', action, cleanId]);
     }
     return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
-fastify.get('/api/applications/:id/logs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { id } = request.params;
-  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
+fastify.get('/api/applications/:id/logs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { id } = (request.params || {}) as { id: string };
+  const app = await dbGet<ApplicationRow>('SELECT * FROM Applications WHERE id = ?', [id]);
   if (!app) return reply.status(404).send({ error: 'App not found' });
 
   try {
@@ -479,15 +629,20 @@ fastify.get('/api/applications/:id/logs', { preValidation: [fastify.authenticate
       const logBuffer = await container.logs({ stdout: true, stderr: true, tail: 100, timestamps: true });
       logs = logBuffer.toString('utf-8').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, ''); // strip docker multiplex headers roughly
     } else if (app.runtime === 'pm2') {
-      const { stdout } = await execAsync(`pm2 logs ${app.identifier} --lines 100 --nostream`);
+      const cleanId = String(app.identifier).trim();
+      if (!/^[a-zA-Z0-9_.-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      const { stdout } = await execFileAsync('pm2', ['logs', cleanId, '--lines', '100', '--nostream']);
       logs = stdout;
     } else if (app.runtime === 'systemd') {
-      const { stdout } = await execAsync(`journalctl -u ${app.identifier} -n 100 --no-pager`);
+      const cleanId = String(app.identifier).trim();
+      if (!/^[a-zA-Z0-9_.@-]+$/.test(cleanId)) return reply.status(400).send({ error: 'Invalid identifier' });
+      const { stdout } = await execFileAsync('journalctl', ['-u', cleanId, '-n', '100', '--no-pager']);
       logs = stdout;
     }
     return { logs };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
@@ -495,8 +650,8 @@ fastify.get('/api/applications', { preValidation: [fastify.authenticate] }, asyn
   return await dbAll('SELECT * FROM Applications ORDER BY createdAt DESC');
 });
 
-fastify.post('/api/applications', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { name, runtime, identifier, internalHost = '127.0.0.1', internalPort, publicDomain, proxyEnabled = 0, cfEnabled = 0 } = request.body;
+fastify.post('/api/applications', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { name, runtime, identifier, internalHost = '127.0.0.1', internalPort, publicDomain, proxyEnabled = 0, cfEnabled = 0 } = (request.body || {}) as Partial<ApplicationRow>;
   const id = crypto.randomUUID();
   await dbRun(
     `INSERT INTO Applications (id, name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled) 
@@ -505,14 +660,14 @@ fastify.post('/api/applications', { preValidation: [fastify.authenticate] }, asy
   );
   
   if (proxyEnabled) await syncProxyConfig();
-  if (cfEnabled) await syncCloudflareDNS(publicDomain, 'create');
+  if (cfEnabled && publicDomain) await syncCloudflareDNS(publicDomain, 'create');
   
   return { success: true, id };
 });
 
-fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { id } = request.params;
-  const { name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled } = request.body;
+fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { id } = (request.params || {}) as { id: string };
+  const { name, runtime, identifier, internalHost, internalPort, publicDomain, proxyEnabled, cfEnabled } = (request.body || {}) as Partial<ApplicationRow>;
   await dbRun(
     `UPDATE Applications 
      SET name = ?, runtime = ?, identifier = ?, internalHost = ?, internalPort = ?, publicDomain = ?, proxyEnabled = ?, cfEnabled = ?, updatedAt = CURRENT_TIMESTAMP
@@ -521,7 +676,7 @@ fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, 
   );
   
   await syncProxyConfig(); // Re-sync always in case it was disabled
-  if (cfEnabled) {
+  if (cfEnabled && publicDomain) {
     await syncCloudflareDNS(publicDomain, 'create');
   } else {
     // If we want to clean up we could, but skipping delete for safety
@@ -530,207 +685,104 @@ fastify.put('/api/applications/:id', { preValidation: [fastify.authenticate] }, 
   return { success: true };
 });
 
-fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { id } = request.params;
+fastify.delete('/api/applications/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { id } = (request.params || {}) as { id: string };
   
-  const app: any = await dbGet('SELECT * FROM Applications WHERE id = ?', [id]);
+  const app = await dbGet<ApplicationRow>('SELECT * FROM Applications WHERE id = ?', [id]);
   await dbRun('DELETE FROM Applications WHERE id = ?', [id]);
   
   if (app) {
     await syncProxyConfig();
-    if (app.cfEnabled) await syncCloudflareDNS(app.publicDomain, 'delete');
+    if (app.cfEnabled && app.publicDomain) await syncCloudflareDNS(app.publicDomain, 'delete');
   }
   return { success: true };
 });
 
-import { createBrowserSession, closeBrowserSession, navigateBrowser, goBack, goForward, reloadPage, resizeBrowser, insertText, getDOM, dispatchInput } from './browserService.js';
 
-fastify.get('/ws/browser', { websocket: true }, (socket: any, req: any) => {
-  const id = req.id;
-  
-  socket.on('message', async (message: any) => {
-    try {
-      const data = JSON.parse(message.toString());
-      if (data.action === 'init') {
-        await createBrowserSession(id, data.url, socket, data.width || 1280, data.height || 720, data.dpr || 1);
-      } else if (data.action === 'resize') {
-        await resizeBrowser(id, data.width, data.height);
-      } else if (data.action === 'navigate') {
-        await navigateBrowser(id, data.url);
-      } else if (data.action === 'back') {
-        await goBack(id);
-      } else if (data.action === 'forward') {
-        await goForward(id);
-      } else if (data.action === 'reload') {
-        await reloadPage(id);
-      } else if (data.action === 'insertText') {
-        await insertText(id, data.text);
-      } else if (data.action === 'getDOM') {
-        const dom = await getDOM(id);
-        socket.send(JSON.stringify({ type: 'dom', data: dom }));
-      } else if (data.action === 'input') {
-        dispatchInput(id, data.event); // fire-and-forget, no await
-      }
-    } catch (err) {
-      console.error('WS Error:', err);
-    }
-  });
-
-  socket.on('close', async () => {
-    await closeBrowserSession(id);
-  });
-});
 
 registerExtensions(fastify, ALLOWED_ROOT);
 
-
-
-// Browser Proxy API
-fastify.get('/api/browser/proxy', async (request: any, reply) => {
-  const { url } = request.query as { url: string };
-  if (!url) return reply.status(400).send({ error: 'URL is required' });
-  
+// Dev Servers Detection (P2 Developer Workflow)
+fastify.get('/api/dev-servers', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { workspace = WORKSPACE_ALLOWED_ROOT } = request.query as { workspace?: string };
+  let targetPath;
   try {
-    const targetUrl = new URL(url);
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      redirect: 'follow',
-    });
-    
-    const contentType = res.headers.get('content-type') || 'text/html';
-    
-    // For non-HTML content (images, CSS, JS, etc), just pipe through
-    if (!contentType.includes('text/html')) {
-      const buffer = Buffer.from(await res.arrayBuffer());
-      reply.header('Content-Type', contentType);
-      return reply.send(buffer);
-    }
-    
-    let html = await res.text();
-    
-    // Build the proxy base URL - MUST be absolute because <base href> points to the target origin
-    const reqHost = (request.headers.host || request.headers[':authority'] || `${request.hostname}:3030`) as string;
-    const proxyBase = `http://${reqHost}/api/browser/proxy?url=`;
-    const origin = targetUrl.origin;
-    
-    // Rewrite the <base> tag to point to the target origin (for CSS/images/JS assets)
-    const baseTag = `<base href="${origin}/">`;
-    if (html.includes('<head>')) {
-      html = html.replace('<head>', '<head>' + baseTag);
-    } else if (html.includes('<HEAD>')) {
-      html = html.replace('<HEAD>', '<HEAD>' + baseTag);
-    } else {
-      html = baseTag + html;
-    }
-    
-    // Rewrite form actions to go through our proxy using a PATH parameter (hex encoded)
-    // This prevents the browser from stripping the target URL when it submits a GET form
-    html = html.replace(/action="\/([^"]*)"/gi, (match: string, path: string) => {
-      const fullTarget = origin + '/' + path.replace(/^\//, '');
-      const hexUrl = Buffer.from(fullTarget).toString('hex');
-      return `action="http://${reqHost}/api/browser/proxy_form/${hexUrl}"`;
-    });
-    html = html.replace(/action='\/([^']*)'/gi, (match: string, path: string) => {
-      const fullTarget = origin + '/' + path.replace(/^\//, '');
-      const hexUrl = Buffer.from(fullTarget).toString('hex');
-      return `action='http://${reqHost}/api/browser/proxy_form/${hexUrl}'`;
-    });
-    
-    // Inject a script that intercepts all navigation and form submissions
-    // Use a MutationObserver approach that works even without nonce
-    const interceptScript = `
-    <script>
-    (function() {
-      // Override window.location assignments
-      var proxyBase = window.location.origin + '${proxyBase}';
-      var origin = '${origin}';
+    targetPath = await safeResolve(workspace);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
+
+  try {
+    const realTarget = await fs.realpath(targetPath);
+    const networkConnections = await si.networkConnections();
+    const listening = networkConnections.filter(c => c.state === 'LISTEN' && c.pid);
+
+    const servers: DevServerInfo[] = [];
+    const seenPorts = new Set<string>();
+
+    for (const conn of listening) {
+      if (!conn.pid || conn.localPort === '3030' || conn.localPort === '5050') continue;
       
-      // Intercept form submissions
-      document.addEventListener('submit', function(e) {
-        var form = e.target;
-        if (form.tagName !== 'FORM') return;
-        var action = form.getAttribute('action') || '';
-        if (action && !action.includes('${proxyBase}')) {
-          e.preventDefault();
-          var formData = new FormData(form);
-          var params = new URLSearchParams(formData);
-          var fullUrl;
-          if (action.startsWith('http')) {
-            fullUrl = action;
-          } else if (action.startsWith('/')) {
-            fullUrl = origin + action;
-          } else {
-            fullUrl = origin + '/' + action;
+      try {
+        const rawCwd = await fs.readlink(`/proc/${conn.pid}/cwd`).catch(() => null);
+        if (!rawCwd) continue;
+        const realCwd = await fs.realpath(rawCwd).catch(() => rawCwd);
+
+        if (realCwd === realTarget || realCwd.startsWith(realTarget.endsWith(path.sep) ? realTarget : realTarget + path.sep)) {
+          if (!seenPorts.has(conn.localPort)) {
+            seenPorts.add(conn.localPort);
+            servers.push({
+              port: conn.localPort,
+              pid: conn.pid,
+              cwd: realCwd,
+              process: conn.process || 'node',
+              localAddress: conn.localAddress
+            });
           }
-          if (form.method && form.method.toUpperCase() === 'GET') {
-            fullUrl = fullUrl.split('?')[0] + '?' + params.toString();
-          }
-          window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: fullUrl }, '*');
         }
-      }, true);
-      
-      // Intercept link clicks
-      document.addEventListener('click', function(e) {
-        var a = e.target;
-        while (a && a.tagName !== 'A') a = a.parentElement;
-        if (!a || !a.href) return;
-        var href = a.href;
-        // Skip javascript: and # links
-        if (href.startsWith('javascript:') || href === '#') return;
-        e.preventDefault();
-        e.stopPropagation();
-        window.parent.postMessage({ type: 'NEBU_NAVIGATE', url: href }, '*');
-      }, true);
-    })();
-    </script>`;
-    
-    if (html.includes('</body>')) {
-      html = html.replace('</body>', interceptScript + '</body>');
-    } else {
-      html += interceptScript;
+      } catch (e) {}
     }
 
-    // Strip restrictive headers
-    reply.header('Content-Type', 'text/html; charset=utf-8');
-    // Remove ALL security headers that block iframe embedding
-    // Do NOT forward x-frame-options, CSP, etc.
-    
-    return reply.send(html);
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
+    return { servers };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
   }
 });
 
-// Browser Proxy Form Handler
-fastify.get('/api/browser/proxy_form/:hexUrl', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { hexUrl } = request.params as { hexUrl: string };
-  if (!hexUrl) return reply.status(400).send({ error: 'URL is required' });
-  
+// Process Management (P2 Developer Workflow)
+fastify.post('/api/processes/kill', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { pid } = request.body as { pid: number };
+  if (!pid || typeof pid !== 'number' || pid <= 1) {
+    return reply.status(403).send({ error: 'Invalid or protected process ID' });
+  }
+
+  if (pid === process.pid || pid === process.ppid) {
+    return reply.status(403).send({ error: 'Cannot terminate NebuDesk core process' });
+  }
+
   try {
-    const targetBaseUrl = Buffer.from(hexUrl, 'hex').toString('utf8');
-    
-    // Fastify request.query is an object. We need to serialize it back to a query string.
-    const queryParams = new URLSearchParams(request.query as Record<string, string>).toString();
-    
-    const finalTargetUrl = queryParams ? `${targetBaseUrl}?${queryParams}` : targetBaseUrl;
-    
-    // Redirect back to the standard proxy URL so the iframe loads it properly
-    const reqHost = (request.headers.host || request.headers[':authority'] || `${request.hostname}:3030`) as string;
-    const redirectUrl = `http://${reqHost}/api/browser/proxy?url=${encodeURIComponent(finalTargetUrl)}`;
-    
-    return reply.redirect(redirectUrl);
-  } catch (err: any) {
-    console.error("proxy_form error:", err);
-    return reply.status(500).send({ error: 'Invalid proxy form URL', details: err.message });
+    const rawCwd = await fs.readlink(`/proc/${pid}/cwd`).catch(() => null);
+    if (!rawCwd) {
+      return reply.status(403).send({ error: 'Process has no accessible working directory' });
+    }
+    const realCwd = await fs.realpath(rawCwd).catch(() => rawCwd);
+    const realAllowed = await fs.realpath(WORKSPACE_ALLOWED_ROOT).catch(() => WORKSPACE_ALLOWED_ROOT);
+
+    if (realCwd !== realAllowed && !realCwd.startsWith(realAllowed.endsWith(path.sep) ? realAllowed : realAllowed + path.sep)) {
+      return reply.status(403).send({ error: 'Cannot terminate process outside workspace root' });
+    }
+
+    process.kill(pid, 'SIGKILL');
+    return { success: true };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(500).send({ error: message });
   }
 });
-
 // Documents API
-fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { type } = request.query as { type?: string };
   const docs = await dbAll(
     type ? `SELECT id, name, type, updatedAt FROM Documents WHERE userId = ? AND type = ? ORDER BY updatedAt DESC` : `SELECT id, name, type, updatedAt FROM Documents WHERE userId = ? ORDER BY updatedAt DESC`,
@@ -739,21 +791,21 @@ fastify.get('/api/docs', { preValidation: [fastify.authenticate] }, async (reque
   return docs;
 });
 
-fastify.post('/api/docs', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.post('/api/docs', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { name, type } = request.body as { name: string; type: string };
   const id = crypto.randomUUID();
   await dbRun(`INSERT INTO Documents (id, userId, name, type, content) VALUES (?, ?, ?, ?, ?)`, [id, request.user.id, name, type, '']);
   return { id, name, type };
 });
 
-fastify.get('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.get('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
   const doc = await dbGet(`SELECT * FROM Documents WHERE id = ? AND userId = ?`, [id, request.user.id]);
   if (!doc) return reply.status(404).send({ error: 'Not found' });
   return doc;
 });
 
-fastify.put('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.put('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
   const { content, name } = request.body as { content?: string; name?: string };
   if (content !== undefined) await dbRun(`UPDATE Documents SET content = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND userId = ?`, [content, id, request.user.id]);
@@ -761,13 +813,57 @@ fastify.put('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (r
   return { success: true };
 });
 
-fastify.delete('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
+fastify.delete('/api/docs/:id', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
   await dbRun(`DELETE FROM Documents WHERE id = ? AND userId = ?`, [id, request.user.id]);
   return { success: true };
 });
 
-fastify.listen({ port: 3030, host: '0.0.0.0' }, (err, address) => {
+fastify.post('/api/files/rename', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { oldPath, newPath } = request.body as { oldPath: string; newPath: string };
+  let resolvedOld: string;
+  let resolvedNew: string;
+  try {
+    resolvedOld = await safeResolve(oldPath);
+    resolvedNew = await safeResolve(newPath);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
+  try {
+    await fs.rename(resolvedOld, resolvedNew);
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
+  }
+});
+
+fastify.post('/api/files/copy', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+  const { src, dest } = request.body as { src: string; dest: string };
+  if (!src || !dest) {
+    return reply.status(400).send({ error: 'src and dest are required' });
+  }
+  let resolvedSrc: string;
+  let resolvedDest: string;
+  try {
+    resolvedSrc = await safeResolve(src);
+    resolvedDest = await safeResolve(dest);
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(403).send({ error: message });
+  }
+  try {
+    await fs.cp(resolvedSrc, resolvedDest, { recursive: true });
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return reply.status(500).send({ error: message });
+  }
+});
+
+const PORT = Number(process.env.PORT) || 3030;
+fastify.listen({ port: PORT, host: '0.0.0.0' }, (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
@@ -775,17 +871,3 @@ fastify.listen({ port: 3030, host: '0.0.0.0' }, (err, address) => {
   console.log(`Backend listening at ${address}`);
 });
 
-fastify.post('/api/files/rename', { preValidation: [fastify.authenticate] }, async (request: any, reply) => {
-  const { oldPath, newPath } = request.body as { oldPath: string; newPath: string };
-  const resolvedOld = path.resolve(ALLOWED_ROOT, oldPath.replace(/^\//, ''));
-  const resolvedNew = path.resolve(ALLOWED_ROOT, newPath.replace(/^\//, ''));
-  if (!resolvedOld.startsWith(ALLOWED_ROOT) || !resolvedNew.startsWith(ALLOWED_ROOT)) {
-    return reply.status(403).send({ error: 'Forbidden' });
-  }
-  try {
-    await fs.rename(resolvedOld, resolvedNew);
-    return { success: true };
-  } catch (err: any) {
-    return reply.status(500).send({ error: err.message });
-  }
-});
