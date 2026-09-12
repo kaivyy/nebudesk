@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Monitor, Network, Palette, User } from 'lucide-react';
+import { useThemeStore } from '../../stores/themeStore';
+import { useWindowStore } from '../../stores/windowStore';
 
 function formatBytes(bytes: number, decimals = 2) {
   if (!+bytes) return '0 Bytes';
@@ -17,10 +19,12 @@ export default function SettingsApp() {
   
   const [theme, setTheme] = useState('system');
   const [wallpaper, setWallpaper] = useState('default');
-    const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('admin');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [authStatus, setAuthStatus] = useState('');
+
+  const { dockAutoHide, setDockAutoHide, dockSize, setDockSize, dockOpacity, setDockOpacity } = useWindowStore();
 
   // Fetch OS details
   useEffect(() => {
@@ -203,7 +207,15 @@ export default function SettingsApp() {
               <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden text-[13px]">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <div className="font-medium text-gray-900">Appearance</div>
-                  <select value={theme} onChange={e => setTheme(e.target.value)} className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer">
+                  <select 
+                    value={theme} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setTheme(val);
+                      useThemeStore.getState().setTheme(val);
+                    }} 
+                    className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer"
+                  >
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
                     <option value="system">Auto</option>
@@ -211,11 +223,77 @@ export default function SettingsApp() {
                 </div>
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="font-medium text-gray-900">Wallpaper</div>
-                  <select value={wallpaper} onChange={e => setWallpaper(e.target.value)} className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer">
-                    <option value="nebu">NebuDesk Space (Default)</option>
-                    <option value="solid-black">Solid Black</option>
-                    <option value="solid-gray">Solid Gray</option>
+                  <select 
+                    value={wallpaper} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setWallpaper(val);
+                      useThemeStore.getState().setWallpaper(val);
+                    }} 
+                    className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer"
+                  >
+                    <option value="nebu">NebuDesk Space (Default - Dark)</option>
+                    <option value="solid-black">Solid Black (Dark)</option>
+                    <option value="solid-gray">Solid Gray (Dark)</option>
+                    <option value="solid-white">Solid White (Light)</option>
                   </select>
+                </div>
+              </div>
+
+              <h3 className="font-semibold text-gray-900 text-sm mt-6 mb-2 px-1">Dock</h3>
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden text-[13px]">
+                {/* Dock Auto-Hide Toggle */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <div>
+                    <div className="font-medium text-gray-900">Automatically hide and show the Dock</div>
+                    <div className="text-gray-400 text-xs mt-0.5">Dock slides out of view when not hovered</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDockAutoHide(!dockAutoHide)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 cursor-pointer ${dockAutoHide ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${dockAutoHide ? 'translate-x-5' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+
+                {/* Dock Size */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <div>
+                    <div className="font-medium text-gray-900">Dock Size</div>
+                    <div className="text-gray-400 text-xs mt-0.5">Adjust dock icon and container scale</div>
+                  </div>
+                  <select
+                    value={dockSize || 'medium'}
+                    onChange={(e) => setDockSize(e.target.value as 'small' | 'medium' | 'large')}
+                    className="border-none bg-gray-100 rounded px-3 py-1 outline-none text-gray-700 font-medium cursor-pointer"
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium (Default)</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+
+                {/* Dock Transparency / Opacity */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <div className="font-medium text-gray-900">Dock Transparency</div>
+                    <div className="text-gray-400 text-xs mt-0.5">Glass opacity: {typeof dockOpacity === 'number' ? dockOpacity : 20}%</div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={typeof dockOpacity === 'number' ? dockOpacity : 20}
+                      onChange={(e) => setDockOpacity(Number(e.target.value))}
+                      className="w-32 accent-blue-600 cursor-pointer"
+                    />
+                    <span className="font-mono text-xs text-gray-500 w-9 text-right">{typeof dockOpacity === 'number' ? dockOpacity : 20}%</span>
+                  </div>
                 </div>
               </div>
             </div>

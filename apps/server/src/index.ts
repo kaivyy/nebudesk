@@ -20,6 +20,7 @@ import type { AuthUser, UserRow, DesktopStateRow, ApplicationRow, DocumentRow, S
 
 import registerExtensions from './api_extensions.js';
 import { syncProxyConfig, syncCloudflareDNS } from './proxy.js';
+import { recordSelfWrite, subscribeWorkspaceWatcher } from './fileWatcher.js';
 
 const execFileAsync = util.promisify(execFile);
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
@@ -161,9 +162,16 @@ fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (re
 });
 
 fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request, reply) => {
-  const { windowsJson } = request.body as any;
-  console.log('PATCH /api/desktop', windowsJson);
-  await dbRun(`UPDATE DesktopState SET windowsJson = ? WHERE userId = ?`, [windowsJson, request.user.id]);
+  const { windowsJson, wallpaper, theme } = (request.body || {}) as { windowsJson?: string; wallpaper?: string; theme?: string };
+  if (windowsJson !== undefined) {
+    await dbRun(`UPDATE DesktopState SET windowsJson = ? WHERE userId = ?`, [windowsJson, request.user.id]);
+  }
+  if (wallpaper !== undefined) {
+    await dbRun(`UPDATE DesktopState SET wallpaper = ? WHERE userId = ?`, [wallpaper, request.user.id]);
+  }
+  if (theme !== undefined) {
+    await dbRun(`UPDATE DesktopState SET theme = ? WHERE userId = ?`, [theme, request.user.id]);
+  }
   return { success: true };
 });
 
@@ -224,6 +232,7 @@ fastify.put('/api/files/content', { preValidation: [fastify.authenticate] }, asy
     return reply.status(403).send({ error: message });
   }
   try {
+    recordSelfWrite(targetPath);
     await fs.writeFile(targetPath, content, 'utf-8');
     return { success: true };
   } catch (err: unknown) {
@@ -231,6 +240,29 @@ fastify.put('/api/files/content', { preValidation: [fastify.authenticate] }, asy
     return reply.status(500).send({ error: message });
   }
 });
+
+const MEDIA_MIME_TYPES: Record<string, string> = {
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  ogv: 'video/ogg',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
+  m4a: 'audio/mp4',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  pdf: 'application/pdf'
+};
 
 fastify.get('/api/files/download', { preValidation: [fastify.authenticate] }, async (request, reply) => {
   const { p } = request.query as { p: string };
@@ -242,8 +274,33 @@ fastify.get('/api/files/download', { preValidation: [fastify.authenticate] }, as
     return reply.status(403).send({ error: message });
   }
   try {
+    const ext = path.extname(targetPath).slice(1).toLowerCase();
+    const mimeType = MEDIA_MIME_TYPES[ext] || 'application/octet-stream';
+    const stat = await fs.stat(targetPath);
+    const fileSize = stat.size;
+    const range = request.headers.range;
+
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0] || '0', 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const fileStream = (await import('fs')).createReadStream(targetPath, { start, end });
+      return reply
+        .status(206)
+        .header('Content-Range', `bytes ${start}-${end}/${fileSize}`)
+        .header('Accept-Ranges', 'bytes')
+        .header('Content-Length', chunksize)
+        .header('Content-Type', mimeType)
+        .send(fileStream);
+    }
+
     const stream = (await import('fs')).createReadStream(targetPath);
-    return reply.type('application/octet-stream').send(stream);
+    return reply
+      .header('Accept-Ranges', 'bytes')
+      .header('Content-Length', fileSize)
+      .type(mimeType)
+      .send(stream);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return reply.status(500).send({ error: message });
@@ -313,6 +370,7 @@ fastify.post('/api/files/file', { preValidation: [fastify.authenticate] }, async
     return reply.status(403).send({ error: message });
   }
   try {
+    recordSelfWrite(targetPath);
     await fs.writeFile(targetPath, '');
     return { success: true };
   } catch (err: unknown) {
@@ -334,6 +392,7 @@ fastify.delete('/api/files', { preValidation: [fastify.authenticate] }, async (r
     return reply.status(403).send({ error: message });
   }
   try {
+    recordSelfWrite(targetPath);
     await fs.rm(targetPath, { recursive: true, force: true });
     return { success: true };
   } catch (err: unknown) {
@@ -373,11 +432,15 @@ fastify.get('/ws/terminal', { websocket: true }, async (connection: any, req) =>
   const sessionName = `nebudesk_${userId}_${termId}`;
 
   const ptyProcess = pty.spawn('tmux', ['new-session', '-A', '-s', sessionName, '-c', cwd], {
-    name: 'xterm-color',
+    name: 'xterm-256color',
     cols: 80,
     rows: 30,
     cwd: cwd,
-    env: process.env as Record<string, string>
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor'
+    } as Record<string, string>
   });
 
   ptyProcess.onData((data) => {
@@ -397,6 +460,50 @@ fastify.get('/ws/terminal', { websocket: true }, async (connection: any, req) =>
 
   connection.on('close', () => {
     ptyProcess.kill();
+  });
+});
+
+fastify.get('/ws/files/watch', { websocket: true }, async (connection: { send: (data: string) => void; on: (event: string, cb: (...args: unknown[]) => void) => void; close: () => void; readyState?: number }, req: FastifyRequest) => {
+  const cookies = (req.headers.cookie || '').split(';');
+  const tokenCookie = cookies.find(c => c.trim().startsWith('token='));
+  const queryToken = (req.query as Record<string, string | undefined>)?.token;
+  const token = tokenCookie ? tokenCookie.split('=')[1] : queryToken;
+  if (!token) {
+    connection.close();
+    return;
+  }
+  try {
+    fastify.jwt.verify(token);
+  } catch {
+    connection.close();
+    return;
+  }
+
+  const rawWorkspace = (req.query as Record<string, string | undefined>)?.workspace || ALLOWED_ROOT;
+  let workspace = ALLOWED_ROOT;
+  try {
+    workspace = await safeResolve(rawWorkspace);
+  } catch {
+    connection.close();
+    return;
+  }
+
+  const unsubscribe = subscribeWorkspaceWatcher(workspace, (message) => {
+    try {
+      if (connection.readyState === undefined || connection.readyState === 1) {
+        connection.send(JSON.stringify(message));
+      }
+    } catch {
+      // client error
+    }
+  });
+
+  connection.on('close', () => {
+    unsubscribe();
+  });
+
+  connection.on('error', () => {
+    unsubscribe();
   });
 });
 

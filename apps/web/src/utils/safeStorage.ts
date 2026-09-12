@@ -120,5 +120,74 @@ export const safeStorage = {
   getWorkspaceKey(workspace: string, suffix: string, winId?: string): string {
     const slug = encodeURIComponent(workspace.replace(/[/\\:]/g, '_'));
     return winId ? `nebucode_ws_${slug}_${winId}_${suffix}` : `nebucode_ws_${slug}_${suffix}`;
+  },
+
+  /**
+   * Saves an unsaved draft buffer for crash/reload recovery.
+   */
+  saveDraft(workspace: string, filePath: string, content: string, winId?: string): boolean {
+    const key = this.getWorkspaceKey(workspace, `draft_${encodeURIComponent(filePath.replace(/[/\\:]/g, '_'))}`, winId);
+    return this.setString(key, content);
+  },
+
+  /**
+   * Retrieves an unsaved draft buffer if one exists.
+   */
+  getDraft(workspace: string, filePath: string, winId?: string): string | null {
+    const key = this.getWorkspaceKey(workspace, `draft_${encodeURIComponent(filePath.replace(/[/\\:]/g, '_'))}`, winId);
+    const draft = this.getString(key, '');
+    return draft.length > 0 ? draft : null;
+  },
+
+  /**
+   * Clears an unsaved draft once saved or discarded.
+   */
+  clearDraft(workspace: string, filePath: string, winId?: string): void {
+    const key = this.getWorkspaceKey(workspace, `draft_${encodeURIComponent(filePath.replace(/[/\\:]/g, '_'))}`, winId);
+    this.removeItem(key);
+  },
+
+  /**
+   * Exports non-sensitive workspace configuration as a clean JSON string.
+   * Excludes any secrets, passwords, tokens, or private credentials.
+   */
+  exportWorkspace(workspace: string, winId?: string): string {
+    const keys = ['open_files', 'recent_files', 'expanded', 'split_file', 'split_orient', 'cursor_positions'];
+    const exportData: Record<string, unknown> = {
+      version: 1,
+      workspace,
+      exportedAt: new Date().toISOString()
+    };
+
+    for (const key of keys) {
+      const fullKey = this.getWorkspaceKey(workspace, key, winId);
+      const val = this.getItem(fullKey, null);
+      if (val !== null) {
+        exportData[key] = val;
+      }
+    }
+
+    return JSON.stringify(exportData, null, 2);
+  },
+
+  /**
+   * Imports workspace configuration from a verified JSON string.
+   */
+  importWorkspace(workspace: string, jsonStr: string, winId?: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+
+      const keys = ['open_files', 'recent_files', 'expanded', 'split_file', 'split_orient', 'cursor_positions'];
+      for (const key of keys) {
+        if (key in parsed) {
+          const fullKey = this.getWorkspaceKey(workspace, key, winId);
+          this.setItem(fullKey, parsed[key]);
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 };

@@ -36,3 +36,92 @@ html, body, #root {
   transform-origin: center center;
   animation: window-minimize 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Monaco Git Diff Gutter Decorations */
+.git-gutter-added {
+  border-left: 3px solid #2ea043 !important;
+  margin-left: 3px;
+}
+.git-gutter-modified {
+  border-left: 3px solid #e3b341 !important;
+  margin-left: 3px;
+}
+.git-gutter-deleted {
+  border-left: 3px solid #f85149 !important;
+  margin-left: 3px;
+}
+
+/* ==========================================================================
+   NebuCode Modern Dark Scrollbar Theme
+   Matches #1e1e1e / #252526 IDE palette with translucent rounded sliders
+   ========================================================================== */
+.nebucode-app,
+.nebucode-app * {
+  scrollbar-color: rgba(121, 121, 121, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+.nebucode-app ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.nebucode-app ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nebucode-app ::-webkit-scrollbar-thumb {
+  background-color: rgba(121, 121, 121, 0.35);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+
+.nebucode-app ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(121, 121, 121, 0.65);
+}
+
+.nebucode-app ::-webkit-scrollbar-thumb:active {
+  background-color: rgba(191, 191, 191, 0.75);
+}
+
+.nebucode-app ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Monaco Editor Scrollbar refinement in NebuCode */
+.nebucode-app .monaco-editor .scrollbar > .slider {
+  background: rgba(121, 121, 121, 0.35) !important;
+  border-radius: 4px !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.nebucode-app .monaco-editor .scrollbar > .slider:hover {
+  background: rgba(121, 121, 121, 0.65) !important;
+}
+
+.nebucode-app .monaco-editor .scrollbar > .slider.active {
+  background: rgba(191, 191, 191, 0.75) !important;
+}
+
+.nebucode-app .monaco-editor .scrollbar.vertical,
+.nebucode-app .monaco-editor .scrollbar.horizontal {
+  background: transparent !important;
+}
+
+/* Integrated Terminal (xterm) scrollbar refinement */
+.nebucode-app .xterm-viewport::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.nebucode-app .xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: rgba(121, 121, 121, 0.35) !important;
+  border-radius: 4px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+.nebucode-app .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(121, 121, 121, 0.65) !important;
+}

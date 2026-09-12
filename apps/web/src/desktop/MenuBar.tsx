@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
+import { useThemeStore } from '../stores/themeStore';
 import { Apple, Wifi, BatteryFull, Search, SlidersHorizontal } from 'lucide-react';
 
 export default function MenuBar() {
   const { windows, openWindow, closeWindow, bringToFront } = useWindowStore();
+  const { wallpaper } = useThemeStore();
   const focusedWindow = windows.find(w => w.focused);
   const [time, setTime] = useState(new Date());
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+
+  const isLight = wallpaper === 'solid-white' || wallpaper === 'white' || wallpaper === 'solid-light' || wallpaper === 'light' || Boolean(wallpaper?.includes('white') || wallpaper?.includes('light'));
+  const btnHover = isLight ? 'hover:bg-black/10 active:bg-black/15' : 'hover:bg-white/20 active:bg-white/30';
+  const btnActive = isLight ? 'bg-black/10' : 'bg-white/20';
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -58,7 +64,7 @@ export default function MenuBar() {
       detail: {
         initialPath: '/root',
         onSelect: (p: string) => {
-          openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, payload: { file: p } } as any, true);
+          openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, path: p, payload: { file: p } } as any, true);
         }
       } 
     }));
@@ -132,13 +138,13 @@ export default function MenuBar() {
 
   return (
     <>
-    <div className="h-7 bg-black/40 backdrop-blur-md text-white text-sm flex items-center justify-between px-2 shadow-sm border-b border-white/10 select-none relative z-[99999]">
+    <div className={`h-7 bg-transparent backdrop-blur-sm text-sm flex items-center justify-between px-2 select-none relative z-[99999] transition-colors duration-200 ${isLight ? 'text-gray-900' : 'text-white'}`}>
       <div className="flex items-center h-full">
         {/* Apple Logo Menu */}
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('apple')}
-            className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === 'apple' ? 'bg-white/20' : ''}`}
+            className={`px-3 h-full flex items-center transition-colors ${btnHover} ${activeMenu === 'apple' ? btnActive : ''}`}
           >
             <Apple size={16} fill="currentColor" strokeWidth={1} />
           </button>
@@ -146,7 +152,6 @@ export default function MenuBar() {
           {activeMenu === 'apple' && (
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
               <button onClick={() => handleAction(() => openWindow({ appId: 'settings', title: 'System Settings', x: 200, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">System Settings</button>
-              <button onClick={() => handleAction(() => useWindowStore.getState().setDockAutoHide(!useWindowStore.getState().dockAutoHide))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Turn Dock Hiding {useWindowStore.getState().dockAutoHide ? 'Off' : 'On'}</button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button onClick={() => handleAction(() => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Task Manager</button>
               <button onClick={() => handleAction(() => openWindow({ appId: 'services', title: 'Services', x: 240, y: 190, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }))} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">Services Manager</button>
@@ -162,13 +167,25 @@ export default function MenuBar() {
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('app')}
-            className={`px-3 h-full flex items-center font-bold hover:bg-white/20 transition-colors ${activeMenu === 'app' ? 'bg-white/20' : ''}`}
+            className={`px-3 h-full flex items-center font-bold transition-colors ${btnHover} ${activeMenu === 'app' ? btnActive : ''}`}
           >
             {currentApp === 'code' ? 'NebuCode' : (focusedWindow?.title?.split(' - ')[0] || 'Finder')}
           </button>
           {activeMenu === 'app' && (
             <div className="absolute top-6 left-0 w-56 bg-white/90 backdrop-blur-3xl text-black rounded-b-md shadow-2xl py-1 border border-white/20">
-              <button onClick={() => handleAction(() => {})} className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors">About {currentTitle}</button>
+              <button 
+                onClick={() => handleAction(() => openWindow({ 
+                  appId: 'settings', 
+                  title: `About ${currentTitle}`, 
+                  x: 220, y: 150, 
+                  width: 650, height: 450, 
+                  minWidth: 500, minHeight: 350, 
+                  minimized: false, maximized: false 
+                }))} 
+                className="w-full text-left px-4 py-1.5 hover:bg-blue-500 hover:text-white transition-colors"
+              >
+                About {currentTitle}
+              </button>
               <div className="h-[1px] bg-gray-300 my-1"></div>
               <button onClick={() => handleAction(() => {
                 if (focusedWindow) closeWindow(focusedWindow.id);
@@ -182,7 +199,7 @@ export default function MenuBar() {
           <div key={menu.id} className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
             <button 
               onClick={() => toggleMenu(menu.id)}
-              className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === menu.id ? 'bg-white/20' : ''}`}
+              className={`px-3 h-full flex items-center transition-colors ${btnHover} ${activeMenu === menu.id ? btnActive : ''}`}
             >
               {menu.label}
             </button>
@@ -213,7 +230,7 @@ export default function MenuBar() {
         <div className="relative h-full flex items-center" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => toggleMenu('window')}
-            className={`px-3 h-full flex items-center hover:bg-white/20 transition-colors ${activeMenu === 'window' ? 'bg-white/20' : ''}`}
+            className={`px-3 h-full flex items-center transition-colors ${btnHover} ${activeMenu === 'window' ? btnActive : ''}`}
           >
             Window
           </button>
@@ -243,24 +260,61 @@ export default function MenuBar() {
       
       <div className="flex items-center space-x-4 pr-3 h-full">
         {/* System Tray Icons */}
-        <div className="flex items-center space-x-3 text-white/90">
-          <button className="hover:text-white transition-colors" title="Spotlight Search">
+        <div className={`flex items-center space-x-3 ${isLight ? 'text-gray-800' : 'text-white/90'}`}>
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-command-palette'))}
+            className={`${isLight ? 'hover:text-black' : 'hover:text-white'} transition-colors cursor-pointer`} 
+            title="Spotlight Search (Cmd+K / Ctrl+K)"
+          >
             <Search size={14} strokeWidth={2.5} />
           </button>
-          <button className="hover:text-white transition-colors" title="Control Center">
+          <button 
+            onClick={() => openWindow({ 
+              appId: 'settings', 
+              title: 'System Settings', 
+              x: 200, y: 140, 
+              width: 650, height: 480, 
+              minWidth: 500, minHeight: 400, 
+              minimized: false, maximized: false 
+            })}
+            className={`${isLight ? 'hover:text-black' : 'hover:text-white'} transition-colors cursor-pointer`} 
+            title="Control Center & Settings"
+          >
             <SlidersHorizontal size={14} strokeWidth={2.5} />
           </button>
-          <button className="hover:text-white transition-colors" title="Wi-Fi">
+          <button 
+            onClick={() => openWindow({ 
+              appId: 'settings', 
+              title: 'Network & System', 
+              x: 210, y: 150, 
+              width: 650, height: 480, 
+              minWidth: 500, minHeight: 400, 
+              minimized: false, maximized: false 
+            })}
+            className={`${isLight ? 'hover:text-black' : 'hover:text-white'} transition-colors cursor-pointer`} 
+            title="Wi-Fi (Online)"
+          >
             <Wifi size={16} strokeWidth={2.5} />
           </button>
-          <button className="flex items-center hover:text-white transition-colors" title="Battery">
+          <button 
+            onClick={() => openWindow({ 
+              appId: 'tasks', 
+              title: 'Task Manager (Power & Battery)', 
+              x: 220, y: 160, 
+              width: 700, height: 450, 
+              minWidth: 550, minHeight: 300, 
+              minimized: false, maximized: false 
+            })}
+            className={`flex items-center ${isLight ? 'hover:text-black' : 'hover:text-white'} transition-colors cursor-pointer`} 
+            title="Power & System Status"
+          >
             <BatteryFull size={18} strokeWidth={2} className="opacity-90" />
             <span className="text-[11px] font-bold ml-0.5">100%</span>
           </button>
         </div>
         
         {/* Date & Time */}
-        <div className="flex items-center space-x-2 cursor-default hover:bg-white/20 px-2 h-full rounded transition-colors active:bg-white/30">
+        <div className={`flex items-center space-x-2 cursor-default px-2 h-full rounded transition-colors ${btnHover}`}>
           <span>{time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
           <span>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
         </div>

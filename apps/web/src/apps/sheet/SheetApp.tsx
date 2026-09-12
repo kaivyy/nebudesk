@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Trash2, BarChart2 } from 'lucide-react';
+import { Plus, Trash2, BarChart2, Table2 } from 'lucide-react';
 
 const BASE = () => `http://${window.location.hostname}:3030`;
 const COLS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -28,14 +28,15 @@ function evalFormula(formula: string, cells: Record<string, string>): string {
   } catch { return '#ERROR'; }
 }
 
+interface SheetItem { id: string; name: string; type?: string; content?: string; }
 export default function SheetApp() {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [activeDoc, setActiveDoc] = useState<any>(null);
+  const [docs, setDocs] = useState<SheetItem[]>([]);
+  const [activeDoc, setActiveDoc] = useState<SheetItem | null>(null);
   const [cells, setCells] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState('');
-  const saveTimer = useRef<any>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchDocs = async () => {
     const res = await fetch(`${BASE()}/api/docs?type=sheet`, { credentials: 'include' });
@@ -44,7 +45,7 @@ export default function SheetApp() {
 
   useEffect(() => { fetchDocs(); }, []);
 
-  const loadDoc = async (doc: any) => {
+  const loadDoc = async (doc: SheetItem) => {
     const res = await fetch(`${BASE()}/api/docs/${doc.id}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
@@ -207,10 +208,11 @@ export default function SheetApp() {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📊</div>
-              <p className="text-gray-500 mb-4">Create a new spreadsheet to get started</p>
-              <button onClick={createDoc} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">New Sheet</button>
+            <div className="text-center p-8 select-none">
+              <Table2 size={56} className="text-gray-300 stroke-[1.2] mx-auto mb-3" />
+              <p className="text-gray-600 font-medium text-sm mb-1">Pilih atau buat spreadsheet baru</p>
+              <p className="text-gray-400 text-xs mb-4">Mulai mengolah data dengan baris, kolom, dan formula SUM/AVG/MAX/MIN.</p>
+              <button onClick={createDoc} className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors shadow-xs">Buat Spreadsheet</button>
             </div>
           </div>
         )}

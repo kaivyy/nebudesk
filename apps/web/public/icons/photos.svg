@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f0f2f5" />
+    </linearGradient>
+    <linearGradient id="p1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FF3B30"/><stop offset="100%" stop-color="#FF2D55"/></linearGradient>
+    <linearGradient id="p2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FF9500"/><stop offset="100%" stop-color="#FFCC00"/></linearGradient>
+    <linearGradient id="p3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#34C759"/><stop offset="100%" stop-color="#30D158"/></linearGradient>
+    <linearGradient id="p4" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#007AFF"/><stop offset="100%" stop-color="#5856D6"/></linearGradient>
+    <linearGradient id="p5" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#AF52DE"/><stop offset="100%" stop-color="#FF2D55"/></linearGradient>
+    <linearGradient id="p6" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#5AC8FA"/><stop offset="100%" stop-color="#007AFF"/></linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="100" fill="url(#bg)" stroke="#e2e8f0" stroke-width="4"/>
+  <g transform="translate(256, 256)">
+    <!-- Petals -->
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p1)" opacity="0.9" />
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p2)" opacity="0.9" transform="rotate(60)" />
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p3)" opacity="0.9" transform="rotate(120)" />
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p6)" opacity="0.9" transform="rotate(180)" />
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p4)" opacity="0.9" transform="rotate(240)" />
+    <path d="M0,0 C-22,-40 -22,-120 0,-150 C22,-120 22,-40 0,0" fill="url(#p5)" opacity="0.9" transform="rotate(300)" />
+    <circle cx="0" cy="0" r="18" fill="#ffffff" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.15))" />
+  </g>
+</svg>

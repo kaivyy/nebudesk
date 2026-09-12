@@ -10,14 +10,17 @@ function TerminalInstance({ termId, active, cwd }: { termId: string, active: boo
 
   useEffect(() => {
     if (!terminalRef.current) return;
+    const domEl = terminalRef.current;
+
     const term = new XTerminal({
       cursorBlink: true,
       fontFamily: 'monospace',
+      scrollback: 5000,
       theme: { background: '#1e1e1e' }
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
+    term.open(domEl);
     
     // Fit needs to happen after render and layout
     setTimeout(() => fitAddon.fit(), 50);
@@ -44,6 +47,58 @@ function TerminalInstance({ termId, active, cwd }: { termId: string, active: boo
       }
     });
 
+    // Handle Ctrl+V / Cmd+V paste & smart Ctrl+C / Cmd+C copy
+    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      // 1. Paste: Ctrl+V, Cmd+V, or Shift+Insert
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) ||
+        (e.shiftKey && e.key === 'Insert')
+      ) {
+        if (e.type === 'keydown') {
+          navigator.clipboard.readText().then((text) => {
+            if (text && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'terminal.input', data: text }));
+            }
+          }).catch(() => {});
+        }
+        return false;
+      }
+
+      // 2. Copy: Ctrl+C or Cmd+C when text is actively selected
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === 'c' || e.key === 'C') &&
+        term.hasSelection()
+      ) {
+        if (e.type === 'keydown') {
+          navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+        }
+        return false;
+      }
+
+      return true;
+    });
+
+    // DOM paste listener fallback
+    const handleDomPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      const text = e.clipboardData?.getData('text');
+      if (text && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'terminal.input', data: text }));
+      }
+    };
+    domEl.addEventListener('paste', handleDomPaste);
+
+    // Prevent wheel conversion to Up/Down arrow keys when there is no scrollback and mouse reporting is inactive
+    const handleWheel = (e: WheelEvent) => {
+      const isMouseActive = Boolean((term as any)._core?.coreMouseService?.areMouseEventsActive);
+      if (!isMouseActive && term.buffer.active.baseY === 0) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    domEl.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+
     const resizeObserver = new ResizeObserver(() => {
       try {
         fitAddon.fit();
@@ -52,9 +107,11 @@ function TerminalInstance({ termId, active, cwd }: { termId: string, active: boo
         }
       } catch(e) {}
     });
-    resizeObserver.observe(terminalRef.current);
+    resizeObserver.observe(domEl);
 
     return () => {
+      domEl.removeEventListener('paste', handleDomPaste);
+      domEl.removeEventListener('wheel', handleWheel, { capture: true });
       resizeObserver.disconnect();
       ws.close();
       term.dispose();

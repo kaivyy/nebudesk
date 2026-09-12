@@ -998,9 +998,7 @@ export default function registerExtensions(fastify: FastifyInstance, _: string) 
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // P18: Diagnostics & Problems Endpoints
-  // ---------------------------------------------------------------------------
+  // Diagnostics & problems endpoints
 
   fastify.post('/api/diagnostics/parse', { preValidation: [fastify.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { output, workspace } = (request.body || {}) as { output?: string; workspace?: string };

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiFetch } from '../config/api';
 
 export interface DesktopWindow {
   id: string;
@@ -14,6 +15,8 @@ export interface DesktopWindow {
   minimized: boolean;
   maximized: boolean;
   focused: boolean;
+  path?: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface WindowState {
@@ -29,6 +32,10 @@ export interface WindowState {
   maximizeWindow: (id: string) => void;
   dockAutoHide: boolean;
   setDockAutoHide: (val: boolean) => void;
+  dockSize: 'small' | 'medium' | 'large';
+  setDockSize: (val: 'small' | 'medium' | 'large') => void;
+  dockOpacity: number;
+  setDockOpacity: (val: number) => void;
 }
 
 export const useWindowStore = create<WindowState>((set) => ({
@@ -36,6 +43,16 @@ export const useWindowStore = create<WindowState>((set) => ({
   setDockAutoHide: (val: boolean) => set(() => {
     localStorage.setItem('nebudesk_dock_autohide', val.toString());
     return { dockAutoHide: val };
+  }),
+  dockSize: (localStorage.getItem('nebudesk_dock_size') as 'small' | 'medium' | 'large') || 'medium',
+  setDockSize: (val: 'small' | 'medium' | 'large') => set(() => {
+    localStorage.setItem('nebudesk_dock_size', val);
+    return { dockSize: val };
+  }),
+  dockOpacity: Number(localStorage.getItem('nebudesk_dock_opacity') || '20'),
+  setDockOpacity: (val: number) => set(() => {
+    localStorage.setItem('nebudesk_dock_opacity', val.toString());
+    return { dockOpacity: val };
   }),
   windows: [],
   highestZIndex: 0,
@@ -91,7 +108,7 @@ export const useWindowStore = create<WindowState>((set) => ({
 
 // Persist state to backend automatically
 let prevWindows = useWindowStore.getState().windows;
-let debounceTimer: any = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 useWindowStore.subscribe((state) => {
   if (state.windows !== prevWindows) {
@@ -101,11 +118,11 @@ useWindowStore.subscribe((state) => {
       // Don't save if it's the initial empty state load
       if (state.windows.length === 0 && useWindowStore.getState().highestZIndex === 0) return;
       
-      fetch(`http://${window.location.hostname}:3030/api/desktop`, {
+      const persistableWindows = state.windows.filter(w => w.appId !== 'picker');
+      apiFetch('/api/desktop', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ windowsJson: JSON.stringify(state.windows) })
+        body: JSON.stringify({ windowsJson: JSON.stringify(persistableWindows) })
       }).catch(() => {});
     }, 1000);
   }

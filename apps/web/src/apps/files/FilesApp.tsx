@@ -4,7 +4,7 @@ import {
   FolderPlus, FilePlus, Home, Code2, Image as ImageIcon,
   ChevronLeft, ChevronRight, LayoutGrid, FolderOpen,
   Presentation, Film, Music, Archive, Table2, Edit2, Copy, Download,
-  Clock, Monitor, HardDrive, List, MoreHorizontal, Upload
+  Monitor, List, Upload, RefreshCw
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -20,7 +20,7 @@ interface ContextMenu {
   fullPath: string;
 }
 
-function getFileInfo(name: string) {
+export function getFileInfo(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() || '';
   if (/^(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/.test(ext))
     return { appId: 'image', icon: ImageIcon, color: 'text-pink-400', label: 'Image' };
@@ -30,10 +30,10 @@ function getFileInfo(name: string) {
     return { appId: 'sheet', icon: Table2, color: 'text-green-500', label: 'Spreadsheet' };
   if (/^(ppt|pptx|odp|key)$/.test(ext))
     return { appId: 'slides', icon: Presentation, color: 'text-purple-500', label: 'Presentation' };
-  if (/^(mp4|mov|avi|mkv|webm)$/.test(ext))
-    return { appId: 'code', icon: Film, color: 'text-red-400', label: 'Video' };
-  if (/^(mp3|flac|ogg|wav|aac)$/.test(ext))
-    return { appId: 'code', icon: Music, color: 'text-yellow-500', label: 'Audio' };
+  if (/^(mp4|mov|avi|mkv|webm|ogv)$/.test(ext))
+    return { appId: 'image', icon: Film, color: 'text-purple-400', label: 'Video' };
+  if (/^(mp3|flac|ogg|wav|aac|m4a)$/.test(ext))
+    return { appId: 'image', icon: Music, color: 'text-yellow-500', label: 'Audio' };
   if (/^(zip|tar|gz|bz2|xz|7z|rar)$/.test(ext))
     return { appId: 'code', icon: Archive, color: 'text-orange-400', label: 'Archive' };
   if (/^(js|ts|jsx|tsx|py|sh|bash|json|yaml|yml|toml|xml|html|css|scss|go|rs|java|cpp|c|h|php|rb|lua|sql|env|conf|ini|log)$/.test(ext))
@@ -41,7 +41,7 @@ function getFileInfo(name: string) {
   return { appId: 'code', icon: File, color: 'text-gray-400', label: 'File' };
 }
 
-function formatSize(bytes: number) {
+export function formatSize(bytes: number) {
   if (bytes === 0) return '--';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -75,6 +75,7 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<{type: 'folder' | 'file', onSubmit: (name: string) => void} | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
@@ -88,6 +89,7 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
       if (!res.ok) throw new Error('Failed to fetch');
       setFiles(await res.json());
       setCurrentPath(dir);
+      setSelectedFile(null);
       setError('');
     } catch (err: any) {
       setError(err.message);
@@ -96,12 +98,87 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
 
   useEffect(() => { loadFiles(currentPath); }, []);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (renaming || promptModal) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (selectedFile) {
+        const file = filteredFiles.find(f => f.name === selectedFile);
+        if (file && !file.isDir) {
+          const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+          const { appId } = getFileInfo(file.name);
+          useWindowStore.getState().openWindow({
+            appId,
+            title: file.name,
+            x: 180, y: 130, width: 860, height: 560,
+            minWidth: 500, minHeight: 350,
+            minimized: false, maximized: false,
+            path: fullPath
+          } as any, true);
+        }
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (selectedFile) {
+        const file = filteredFiles.find(f => f.name === selectedFile);
+        if (file) openItem(file);
+      }
+      return;
+    }
+
+    if (['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) {
+      e.preventDefault();
+      if (filteredFiles.length === 0) return;
+      const currentIndex = filteredFiles.findIndex(f => f.name === selectedFile);
+      let nextIndex = 0;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        nextIndex = currentIndex === -1 ? 0 : Math.min(filteredFiles.length - 1, currentIndex + 1);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        nextIndex = currentIndex === -1 ? filteredFiles.length - 1 : Math.max(0, currentIndex - 1);
+      }
+      const nextFile = filteredFiles[nextIndex];
+      if (nextFile) {
+        setSelectedFile(nextFile.name);
+      }
+      return;
+    }
+  };
+
   // Close context menu on outside click
   useEffect(() => {
-    const close = () => setContextMenu(null);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
   }, []);
+
+  const handleContextMenu = (e: React.MouseEvent, file: FileEntry, fullPath: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = containerRef.current?.getBoundingClientRect();
+    const localX = rect ? e.clientX - rect.left : e.clientX;
+    const localY = rect ? e.clientY - rect.top : e.clientY;
+    const contW = rect ? rect.width : window.innerWidth;
+    const contH = rect ? rect.height : window.innerHeight;
+    
+    const estimatedHeight = 260;
+    const maxX = Math.max(8, contW - 200);
+    let yPos = localY;
+    if (localY + estimatedHeight > contH - 10) {
+      if (localY - estimatedHeight >= 10) {
+        yPos = localY - estimatedHeight;
+      } else {
+        yPos = Math.max(8, contH - estimatedHeight - 10);
+      }
+    }
+    const clampedX = Math.min(Math.max(8, localX), maxX);
+    const clampedY = Math.max(8, yPos);
+    setContextMenu({ x: clampedX, y: clampedY, file, fullPath });
+  };
 
   const navigate = (path: string) => {
     const newHistory = [...history.slice(0, historyIdx + 1), path];
@@ -253,11 +330,14 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
   );
 
   return (
-    <div className="h-full flex flex-row bg-white text-gray-800 font-sans select-none" ref={containerRef}>
+    <div 
+      className="h-full flex flex-row bg-white text-gray-800 font-sans select-none relative focus:outline-none" 
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       
-          {/* Left Unified Sidebar & Chrome */}
     <div className="w-56 bg-[#f3f3f3] flex-shrink-0 flex flex-col border-r border-transparent nebudesk-drag-region touch-none select-none h-full relative z-10">
-      {/* Traffic Light Spacer (Window.tsx absolute lights sit here) */}
       <div className="h-14 shrink-0 pointer-events-none border-b border-transparent"></div>
       
       <div className="flex-1 overflow-y-auto py-2 space-y-1 nebudesk-no-drag">
@@ -265,11 +345,6 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
             <div className="mt-2 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
             <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
             <SidebarItem icon={Monitor} label="NebuDesk" path="/root/nebudesk" isActive={currentPath === '/root/nebudesk'} />
-            
-            <div className="mt-4 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Sistem</div>
-            <SidebarItem icon={HardDrive} label="System Root" path="/" isActive={currentPath === '/'} />
-            <SidebarItem icon={FolderOpen} label="Konfigurasi" path="/etc" isActive={currentPath === '/etc'} />
-            <SidebarItem icon={Clock} label="Server Logs" path="/var/log" isActive={currentPath === '/var/log'} />
           
       </div>
     </div>
@@ -305,7 +380,13 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
             <button onClick={handleCreateFile} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="New File"><FilePlus size={18} /></button>
             <button onClick={handleUploadClick} className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md" title="Upload File"><Upload size={18} /></button>
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-            <button className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md"><MoreHorizontal size={18} /></button>
+            <button 
+              onClick={() => loadFiles(currentPath)} 
+              className="p-1 sm:p-1.5 hover:bg-gray-100 rounded-md text-gray-500 hover:text-gray-700 transition-colors" 
+              title="Reload Folder"
+            >
+              <RefreshCw size={16} />
+            </button>
           </div>
 
           {/* Search */}
@@ -323,15 +404,15 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
       </div>
 
       {error && <div className="px-4 py-2 text-red-500 bg-red-50 text-xs border-b border-red-100">{error}</div>}
-
-      
-      {error && <div className="px-4 py-2 text-red-500 bg-red-50 text-xs border-b border-red-100">{error}</div>}
-      {/* File List/Grid */}
-        <div className="flex-1 overflow-auto p-4 bg-white relative" onClick={() => setRenaming(null)}>
+        <div 
+          className="flex-1 overflow-auto p-4 bg-white relative" 
+          onClick={() => { setRenaming(null); setSelectedFile(null); }}
+        >
           {filteredFiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4">
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2 select-none">
               <FolderIcon />
-              <p>Kosong</p>
+              <p className="text-sm font-medium text-gray-500">Folder ini kosong</p>
+              <p className="text-xs text-gray-400">Gunakan tombol di atas untuk membuat berkas atau folder baru.</p>
             </div>
           ) : viewMode === 'list' ? (
             <table className="w-full text-sm text-left border-collapse">
@@ -348,12 +429,16 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
                   const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
                   const info = file.isDir ? null : getFileInfo(file.name);
                   const Icon = info ? info.icon : Folder;
+                  const isSelected = selectedFile === file.name;
                   return (
                     <tr
                       key={file.name}
-                      onClick={() => openItem(file)}
-                      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
-                      className="border-b border-gray-50 hover:bg-blue-50 group cursor-pointer transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setSelectedFile(file.name); }}
+                      onDoubleClick={(e) => { e.stopPropagation(); openItem(file); }}
+                      onContextMenu={e => { setSelectedFile(file.name); handleContextMenu(e, file, fullPath); }}
+                      className={`border-b border-gray-50 select-none group cursor-pointer transition-colors ${
+                        isSelected ? 'bg-blue-500/15 font-medium' : 'hover:bg-blue-50/50'
+                      }`}
                     >
                       <td className="py-2 flex items-center space-x-3 pl-2">
                         {file.isDir ? (
@@ -394,16 +479,36 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
                 const fullPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
                 const info = file.isDir ? null : getFileInfo(file.name);
                 const Icon = info ? info.icon : Folder;
+                const isSelected = selectedFile === file.name;
+                const isImage = !file.isDir && /^(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(file.name.split('.').pop() || '');
                 return (
                   <div
                     key={file.name}
-                    onClick={(e) => { e.stopPropagation(); openItem(file); }}
-                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, file, fullPath }); }}
-                    className="flex flex-col items-center gap-1 group cursor-pointer relative"
+                    onClick={(e) => { e.stopPropagation(); setSelectedFile(file.name); }}
+                    onDoubleClick={(e) => { e.stopPropagation(); openItem(file); }}
+                    onContextMenu={e => { setSelectedFile(file.name); handleContextMenu(e, file, fullPath); }}
+                    className={`flex flex-col items-center gap-1 group cursor-pointer relative p-1.5 rounded-lg transition-all ${
+                      isSelected ? 'bg-blue-500/15 ring-2 ring-blue-500' : 'hover:bg-gray-100/60'
+                    }`}
                   >
                     <div className="w-16 h-16 flex items-center justify-center relative">
                       {file.isDir ? (
                         <FolderIcon />
+                      ) : isImage ? (
+                        <div className="w-14 h-16 rounded-md shadow-sm overflow-hidden border border-gray-200/60 bg-gray-100 flex items-center justify-center relative">
+                          <img 
+                            src={`${BASE}/api/files/download?p=${encodeURIComponent(fullPath)}`} 
+                            alt={file.name} 
+                            className="w-full h-full object-cover" 
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute inset-0 -z-10 flex items-center justify-center">
+                            <Icon size={28} strokeWidth={1} className={info?.color || 'text-gray-400'} />
+                          </div>
+                        </div>
                       ) : (
                         <div className="w-14 h-16 rounded-md shadow-sm overflow-hidden border border-gray-200/50 bg-gray-50 flex items-center justify-center">
                           <Icon size={32} strokeWidth={1} className={info?.color || 'text-gray-400'} />
@@ -422,7 +527,9 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
                       />
                     ) : (
                       <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-800 text-center max-w-[80px] truncate group-hover:bg-blue-500 group-hover:text-white px-1.5 py-0.5 rounded transition-colors">
+                        <span className={`text-xs text-center max-w-[84px] truncate px-1.5 py-0.5 rounded transition-colors ${
+                          isSelected ? 'bg-blue-600 text-white font-medium shadow-xs' : 'text-gray-800 group-hover:bg-blue-500/10'
+                        }`}>
                           {file.name}
                         </span>
                       </div>
@@ -434,7 +541,6 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
           )}
         </div>
       </div>
-{/* Prompt Modal */}
       {promptModal && (
         <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-40 backdrop-blur-[1px]" onClick={() => setPromptModal(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-72 overflow-hidden border border-gray-200" onClick={e => e.stopPropagation()}>
@@ -469,56 +575,83 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
         </div>
       )}
 
-      {/* Context Menu */}
       {contextMenu && (
-        <div
-          className="fixed z-50 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-2xl py-1.5 min-w-[180px] text-sm"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={e => e.stopPropagation()}
-        >
-          {!contextMenu.file.isDir && (
-            <>
-              <button onClick={() => { openItem(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-                <FolderOpen size={14} className="text-blue-500" /><span>Open</span>
-              </button>
-              <button onClick={() => { openItem({ ...contextMenu.file, name: contextMenu.file.name }); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-                <Code2 size={14} className="text-gray-500" /><span>Open in NebuCode</span>
-              </button>
-              <div className="border-t border-gray-100 my-1"></div>
-              <button onClick={() => { handleDownload(contextMenu.fullPath, contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-                <Download size={14} className="text-gray-500" /><span>Download</span>
-              </button>
-            </>
-          )}
-          {contextMenu.file.isDir && (
-            <>
-              <button onClick={() => { navigate(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-                <FolderOpen size={14} className="text-blue-500" /><span>Open Folder</span>
-              </button>
-              <button onClick={() => { 
-                useWindowStore.getState().openWindow({
-                  appId: 'code', title: 'NebuCode',
-                  x: 150, y: 150, width: 800, height: 600,
-                  minWidth: 600, minHeight: 400, minimized: false, maximized: false,
-                  path: contextMenu.fullPath
-                } as any, true);
-                setContextMenu(null); 
-              }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-                <Code2 size={14} className="text-gray-500" /><span>Open in NebuCode</span>
-              </button>
-            </>
-          )}
-          <button onClick={() => { handleCopy(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-            <Copy size={14} className="text-gray-500" /><span>Copy Path</span>
-          </button>
-          <button onClick={() => { setRenaming(contextMenu.file.name); setRenameVal(contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
-            <Edit2 size={14} className="text-gray-500" /><span>Rename</span>
-          </button>
-          <div className="border-t border-gray-100 my-1"></div>
-          <button onClick={() => { handleDelete(contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-red-50 text-red-500 flex items-center space-x-2">
-            <Trash2 size={14} /><span>Delete</span>
-          </button>
-        </div>
+        <>
+          <div
+            className="absolute inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          />
+          <div
+            className="absolute z-50 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-xl shadow-2xl py-1.5 min-w-[180px] max-h-[calc(100%-20px)] overflow-y-auto [scrollbar-width:thin] text-sm"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={e => e.stopPropagation()}
+          >
+            {!contextMenu.file.isDir && (
+              <>
+                <button onClick={() => { openItem(contextMenu.file); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                  <FolderOpen size={14} className="text-blue-500" /><span>Open</span>
+                </button>
+                {/^(jpg|jpeg|png|gif|webp|svg|bmp|ico|mp4|mov|avi|mkv|webm|ogv|mp3|flac|ogg|wav|aac|m4a)$/i.test(contextMenu.file.name.split('.').pop() || '') && (
+                  <button onClick={() => { 
+                    useWindowStore.getState().openWindow({
+                      appId: 'image', title: contextMenu.file.name,
+                      x: 180, y: 130, width: 860, height: 560,
+                      minWidth: 500, minHeight: 350, minimized: false, maximized: false,
+                      path: contextMenu.fullPath
+                    } as any, true);
+                    setContextMenu(null); 
+                  }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                    <ImageIcon size={14} className="text-pink-500" /><span>Open in Media Viewer</span>
+                  </button>
+                )}
+                <button onClick={() => { 
+                  useWindowStore.getState().openWindow({
+                    appId: 'code', title: 'NebuCode',
+                    x: 150, y: 150, width: 900, height: 600,
+                    minWidth: 500, minHeight: 350, minimized: false, maximized: false,
+                    path: contextMenu.fullPath
+                  } as any, true);
+                  setContextMenu(null); 
+                }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                  <Code2 size={14} className="text-gray-500" /><span>Open in NebuCode</span>
+                </button>
+                <div className="border-t border-gray-100 my-1"></div>
+                <button onClick={() => { handleDownload(contextMenu.fullPath, contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                  <Download size={14} className="text-gray-500" /><span>Download</span>
+                </button>
+              </>
+            )}
+            {contextMenu.file.isDir && (
+              <>
+                <button onClick={() => { navigate(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                  <FolderOpen size={14} className="text-blue-500" /><span>Open Folder</span>
+                </button>
+                <button onClick={() => { 
+                  useWindowStore.getState().openWindow({
+                    appId: 'code', title: 'NebuCode',
+                    x: 150, y: 150, width: 800, height: 600,
+                    minWidth: 600, minHeight: 400, minimized: false, maximized: false,
+                    path: contextMenu.fullPath
+                  } as any, true);
+                  setContextMenu(null); 
+                }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+                  <Code2 size={14} className="text-gray-500" /><span>Open in NebuCode</span>
+                </button>
+              </>
+            )}
+            <button onClick={() => { handleCopy(contextMenu.fullPath); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+              <Copy size={14} className="text-gray-500" /><span>Copy Path</span>
+            </button>
+            <button onClick={() => { setRenaming(contextMenu.file.name); setRenameVal(contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-blue-50 flex items-center space-x-2">
+              <Edit2 size={14} className="text-gray-500" /><span>Rename</span>
+            </button>
+            <div className="border-t border-gray-100 my-1"></div>
+            <button onClick={() => { handleDelete(contextMenu.file.name); setContextMenu(null); }} className="w-full text-left px-4 py-1.5 hover:bg-red-50 text-red-500 flex items-center space-x-2">
+              <Trash2 size={14} /><span>Delete</span>
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

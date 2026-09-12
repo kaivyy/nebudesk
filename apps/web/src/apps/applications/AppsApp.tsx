@@ -447,7 +447,7 @@ export default function AppsApp() {
                 
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
                   <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
-                    <div className="font-bold text-gray-800 mb-1">🌍 VPS (Public IP)</div>
+                    <div className="font-bold text-gray-800 mb-1 flex items-center gap-1.5"><Globe size={15} className="text-blue-500" /> VPS (Public IP)</div>
                     <p className="text-gray-600 text-xs mb-2">For standard cloud servers with a direct public IP.</p>
                     <ol className="list-decimal pl-4 text-xs space-y-1 text-gray-700">
                       <li>Fill out the API Token & Zone ID below.</li>
@@ -457,7 +457,7 @@ export default function AppsApp() {
                   </div>
                   
                   <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
-                    <div className="font-bold text-gray-800 mb-1">🏠 Homeserver / Proxmox LXC</div>
+                    <div className="font-bold text-gray-800 mb-1 flex items-center gap-1.5"><Server size={15} className="text-emerald-600" /> Homeserver / Proxmox LXC</div>
                     <p className="text-gray-600 text-xs mb-2">For servers behind NAT without a public IP (Zero Trust).</p>
                     <ol className="list-decimal pl-4 text-xs space-y-1 text-gray-700 mb-2">
                       <li>Do not use the API Token below. Instead, set up a <a href="https://one.dash.cloudflare.com/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center">CF Tunnel <ExtLink size={10} className="ml-0.5" /></a> manually.</li>

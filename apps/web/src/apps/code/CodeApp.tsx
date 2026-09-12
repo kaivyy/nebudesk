@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWindowStore } from '../../stores/windowStore';
 import Editor from '@monaco-editor/react';
 import { Terminal } from 'xterm';
@@ -11,10 +11,13 @@ import {
   Scissors, Clipboard, ExternalLink, Clock, Replace, CaseSensitive,
   RotateCcw, Minus, Check, Download, ArrowDown, ArrowUp,
   Activity, Square, Hammer, CheckCircle2,
-  AlertCircle, AlertTriangle, Info, Filter
+  AlertCircle, AlertTriangle, Info, Filter,
+  Crosshair, ChevronsDownUp, ZoomIn, ZoomOut, Maximize, Music,
+  Image as ImageIcon, FolderOpen, Code2
 } from 'lucide-react';
-import { WS_BASE_URL, apiFetch, apiJson } from '../../config/api';
+import { WS_BASE_URL, API_BASE_URL, apiFetch, apiJson } from '../../config/api';
 import { safeStorage } from '../../utils/safeStorage';
+import { commandRegistry } from '../../stores/commandRegistry';
 
 export interface DiagnosticItem {
   id: string;
@@ -38,6 +41,97 @@ interface OpenFile {
   content: string;
   original: string;
   isDirty: boolean;
+  externalConflict?: boolean;
+  diskContent?: string;
+}
+
+interface DiffRange {
+  startLine: number;
+  endLine: number;
+  type: 'add' | 'mod' | 'del';
+}
+
+function parseUnifiedDiffToRanges(diffText: string): DiffRange[] {
+  const ranges: DiffRange[] = [];
+  if (!diffText) return ranges;
+
+  const lines = diffText.split('\n');
+  let currentNewLine = 0;
+  let inHunk = false;
+  let blockAdds: number[] = [];
+  let blockDels: number[] = [];
+
+  const flushBlock = () => {
+    if (blockAdds.length > 0 && blockDels.length > 0) {
+      const minAdd = Math.min(...blockAdds);
+      const maxAdd = Math.max(...blockAdds);
+      ranges.push({ startLine: minAdd, endLine: maxAdd, type: 'mod' });
+    } else if (blockAdds.length > 0) {
+      const minAdd = Math.min(...blockAdds);
+      const maxAdd = Math.max(...blockAdds);
+      ranges.push({ startLine: minAdd, endLine: maxAdd, type: 'add' });
+    } else if (blockDels.length > 0) {
+      const targetLine = Math.max(1, currentNewLine);
+      ranges.push({ startLine: targetLine, endLine: targetLine, type: 'del' });
+    }
+    blockAdds = [];
+    blockDels = [];
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('@@')) {
+      flushBlock();
+      const match = line.match(/@@\s+-[0-9]+(?:,[0-9]+)?\s+\+([0-9]+)(?:,[0-9]+)?\s+@@/);
+      if (match && match[1]) {
+        currentNewLine = parseInt(match[1], 10);
+        inHunk = true;
+      } else {
+        inHunk = false;
+      }
+      continue;
+    }
+
+    if (!inHunk) continue;
+
+    if (line.startsWith('+')) {
+      blockAdds.push(currentNewLine);
+      currentNewLine++;
+    } else if (line.startsWith('-')) {
+      blockDels.push(currentNewLine);
+    } else if (line.startsWith(' ') || line === '') {
+      flushBlock();
+      currentNewLine++;
+    }
+  }
+
+  flushBlock();
+  return ranges;
+}
+
+interface WatcherChangeItem {
+  path: string;
+  relPath: string;
+  parentDir: string;
+  event: 'change' | 'create' | 'delete';
+}
+
+interface WatcherBatchMessage {
+  type: 'fs.batch';
+  workspace: string;
+  changes: WatcherChangeItem[];
+  gitMayHaveChanged: boolean;
+}
+
+interface GitStatusData {
+  isRepo: boolean;
+  notRepo?: boolean;
+  branch: string;
+  branches: string[];
+  files: Array<{ status: string; file: string }>;
+  staged: Array<{ file: string; status: string }>;
+  unstaged: Array<{ file: string; status: string }>;
+  untracked: Array<{ file: string; status: string }>;
+  clean: boolean;
 }
 
 interface GrepMatch {
@@ -107,7 +201,8 @@ interface CommandCenterSummary {
 }
 
 function FileTreeNode({ 
-  name, path, isDir, level, onSelectFile, expandedPaths, toggleExpand, onAction, onContextMenu, selectedPath, onSelectPath
+  name, path, isDir, level, onSelectFile, expandedPaths, toggleExpand, onAction, onContextMenu, selectedPath, onSelectPath,
+  gitStatusMap, gitFolderStatusMap, isDeletedTracked, workspace, gitStatus
 }: { 
   name: string, path: string, isDir: boolean, level: number, 
   onSelectFile: (p: string) => void, 
@@ -115,7 +210,12 @@ function FileTreeNode({
   onContextMenu?: (e: React.MouseEvent | { preventDefault: () => void, stopPropagation: () => void, clientX: number, clientY: number }, path: string, isDir: boolean) => void,
   onAction: (e: React.MouseEvent, action: string, path: string) => void,
   selectedPath?: string | null,
-  onSelectPath?: (p: string) => void
+  onSelectPath?: (p: string) => void,
+  gitStatusMap?: Record<string, 'M' | 'D' | 'U' | 'A' | 'R'>,
+  gitFolderStatusMap?: Record<string, boolean>,
+  isDeletedTracked?: boolean,
+  workspace?: string,
+  gitStatus?: GitStatusData | null
 }) {
   const isExpanded = expandedPaths.has(path);
   const isSelected = selectedPath === path;
@@ -181,6 +281,41 @@ function FileTreeNode({
     }
   }, [isDir, isExpanded, path]);
 
+  // Targeted refresh: Listen for directory refresh events
+  useEffect(() => {
+    if (!isDir) return;
+    const handleDirRefresh = (e: Event) => {
+      const customEvent = e as CustomEvent<{ dir: string }>;
+      if (customEvent.detail?.dir === path && isExpanded) {
+        fetchChildren();
+      }
+    };
+    window.addEventListener('nebucode:refresh-dir', handleDirRefresh);
+    return () => {
+      window.removeEventListener('nebucode:refresh-dir', handleDirRefresh);
+    };
+  }, [isDir, isExpanded, path]);
+
+  // Merge deleted tracked files into children for visual awareness
+  const displayedChildren = useMemo(() => {
+    const list: Array<FileEntry & { isDeletedTracked?: boolean }> = [...children];
+    if (gitStatus?.files && workspace) {
+      for (const gf of gitStatus.files) {
+        if (gf.status.includes('D')) {
+          const fullGitPath = workspace === '/' ? `/${gf.file}` : `${workspace}/${gf.file}`;
+          const parent = fullGitPath.substring(0, fullGitPath.lastIndexOf('/')) || '/';
+          if (parent === path) {
+            const fileName = fullGitPath.substring(fullGitPath.lastIndexOf('/') + 1);
+            if (!list.some(c => c.name === fileName)) {
+              list.push({ name: fileName, isDir: false, size: 0, isDeletedTracked: true });
+            }
+          }
+        }
+      }
+    }
+    return list;
+  }, [children, gitStatus, path, workspace]);
+
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith('.ts') || fileName.endsWith('.tsx') || fileName.endsWith('.js') || fileName.endsWith('.jsx')) {
       return <FileCode2 size={15} className="text-yellow-400" />;
@@ -221,17 +356,33 @@ function FileTreeNode({
             getFileIcon(name)
           )}
         </div>
-        <span className="text-sm truncate flex-1 select-none">{name}</span>
+        <span className={`text-sm truncate flex-1 select-none ${isDeletedTracked ? 'line-through text-red-400 opacity-60' : ''}`}>{name}</span>
+        {gitStatusMap?.[path] && (
+          <span 
+            className={`text-[10px] font-mono font-bold px-1 rounded ml-auto shrink-0 ${
+              gitStatusMap[path] === 'M' ? 'text-amber-400 bg-amber-950/40' :
+              gitStatusMap[path] === 'D' ? 'text-red-400 bg-red-950/40' :
+              gitStatusMap[path] === 'U' || gitStatusMap[path] === 'A' ? 'text-emerald-400 bg-emerald-950/40' :
+              'text-blue-400 bg-blue-950/40'
+            }`}
+            title={`Git: ${gitStatusMap[path]}`}
+          >
+            {gitStatusMap[path]}
+          </span>
+        )}
+        {isDir && gitFolderStatusMap?.[path] && !gitStatusMap?.[path] && (
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400/80 ml-auto shrink-0 mr-1" title="Contains modified files" />
+        )}
       </div>
       
       {isDir && isExpanded && (
         <div>
           {loading && children.length === 0 ? (
             <div className="text-xs text-gray-500 py-1" style={{ paddingLeft: `${(level + 1) * 12 + 28}px` }}>Loading...</div>
-          ) : children.length === 0 ? (
+          ) : displayedChildren.length === 0 ? (
             <div className="text-xs text-gray-500 py-1" style={{ paddingLeft: `${(level + 1) * 12 + 28}px` }}>Empty</div>
           ) : (
-            children.map(child => (
+            displayedChildren.map(child => (
               <FileTreeNode 
                 key={child.name}
                 name={child.name}
@@ -245,6 +396,11 @@ function FileTreeNode({
                 onContextMenu={onContextMenu}
                 selectedPath={selectedPath}
                 onSelectPath={onSelectPath}
+                gitStatusMap={gitStatusMap}
+                gitFolderStatusMap={gitFolderStatusMap}
+                isDeletedTracked={child.isDeletedTracked}
+                workspace={workspace}
+                gitStatus={gitStatus}
               />
             ))
           )}
@@ -259,15 +415,18 @@ function IntegratedTerminal({ workspace, termId }: { workspace: string, termId: 
 
   useEffect(() => {
     if (!terminalRef.current) return;
+    const domEl = terminalRef.current;
+
     const term = new Terminal({
       cursorBlink: true,
       fontFamily: 'monospace',
       fontSize: 13,
+      scrollback: 5000,
       theme: { background: '#1e1e1e' }
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
+    term.open(domEl);
     
     setTimeout(() => fitAddon.fit(), 50);
 
@@ -291,15 +450,69 @@ function IntegratedTerminal({ workspace, termId }: { workspace: string, termId: 
       }
     });
 
+    // Handle Ctrl+V / Cmd+V paste & smart Ctrl+C / Cmd+C copy
+    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      // 1. Paste: Ctrl+V, Cmd+V, or Shift+Insert
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) ||
+        (e.shiftKey && e.key === 'Insert')
+      ) {
+        if (e.type === 'keydown') {
+          navigator.clipboard.readText().then((text) => {
+            if (text && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'terminal.input', data: text }));
+            }
+          }).catch(() => {});
+        }
+        return false;
+      }
+
+      // 2. Copy: Ctrl+C or Cmd+C when text is actively selected
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === 'c' || e.key === 'C') &&
+        term.hasSelection()
+      ) {
+        if (e.type === 'keydown') {
+          navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+        }
+        return false;
+      }
+
+      return true;
+    });
+
+    // DOM paste listener fallback
+    const handleDomPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      const text = e.clipboardData?.getData('text');
+      if (text && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'terminal.input', data: text }));
+      }
+    };
+    domEl.addEventListener('paste', handleDomPaste);
+
+    // Prevent wheel conversion to Up/Down arrow keys when there is no scrollback and mouse reporting is inactive
+    const handleWheel = (e: WheelEvent) => {
+      const isMouseActive = Boolean((term as any)._core?.coreMouseService?.areMouseEventsActive);
+      if (!isMouseActive && term.buffer.active.baseY === 0) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    domEl.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'terminal.resize', cols: term.cols, rows: term.rows }));
       }
     });
-    resizeObserver.observe(terminalRef.current);
+    resizeObserver.observe(domEl);
 
     return () => {
+      domEl.removeEventListener('paste', handleDomPaste);
+      domEl.removeEventListener('wheel', handleWheel, { capture: true });
       resizeObserver.disconnect();
       ws.close();
       term.dispose();
@@ -307,6 +520,81 @@ function IntegratedTerminal({ workspace, termId }: { workspace: string, termId: 
   }, [workspace, termId]);
 
   return <div ref={terminalRef} className="w-full h-full" />;
+}
+
+const isMediaFile = (p: string) => /^(jpg|jpeg|png|gif|webp|svg|bmp|ico|mp4|webm|ogv|mov|mkv|mp3|wav|ogg|flac|aac|m4a)$/i.test((p || '').split('.').pop() || '');
+
+function MediaPreviewPane({ path }: { path: string }) {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  const isVideo = /^(mp4|webm|ogv|mov|mkv)$/.test(ext);
+  const isAudio = /^(mp3|wav|ogg|flac|aac|m4a)$/.test(ext);
+  const [zoom, setZoom] = useState(1);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+  const mediaUrl = `${API_BASE_URL}/api/files/download?p=${encodeURIComponent(path)}`;
+  const filename = path.split('/').pop() || '';
+
+  return (
+    <div className="w-full h-full flex flex-col bg-[#141414] select-none overflow-hidden">
+      {/* Top bar */}
+      <div className="h-9 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between px-4 text-xs text-gray-400 shrink-0">
+        <div className="flex items-center space-x-2 truncate">
+          <span className="text-gray-200 font-medium truncate">{filename}</span>
+          {dimensions && (
+            <span className="text-[11px] text-gray-500 font-mono bg-[#282828] px-1.5 py-0.5 rounded shrink-0">
+              {dimensions.width} × {dimensions.height} px
+            </span>
+          )}
+        </div>
+        {!isVideo && !isAudio && (
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))} title="Zoom Out" className="p-1 hover:bg-[#333] rounded text-gray-300">
+              <ZoomOut size={14} />
+            </button>
+            <span className="w-10 text-center font-mono text-[11px]">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(5, z + 0.25))} title="Zoom In" className="p-1 hover:bg-[#333] rounded text-gray-300">
+              <ZoomIn size={14} />
+            </button>
+            <button onClick={() => setZoom(1)} title="Reset Size" className="p-1 hover:bg-[#333] rounded text-gray-300 ml-1">
+              <Maximize size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Media content */}
+      <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-[#0c0c0c]">
+        {isVideo ? (
+          <video 
+            src={mediaUrl} 
+            controls 
+            className="max-w-full max-h-full object-contain rounded shadow-2xl"
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              setDimensions({ width: v.videoWidth, height: v.videoHeight });
+            }}
+          />
+        ) : isAudio ? (
+          <div className="flex flex-col items-center space-y-4 p-8 bg-[#1e1e1e] rounded-xl border border-[#333]">
+            <Music size={40} className="text-yellow-400" />
+            <span className="text-sm font-medium text-gray-200">{filename}</span>
+            <audio src={mediaUrl} controls className="w-72" />
+          </div>
+        ) : (
+          <img 
+            src={mediaUrl} 
+            alt={filename} 
+            style={{ transform: `scale(${zoom})`, transition: 'transform 0.15s ease-out' }}
+            className="max-w-full max-h-full object-contain origin-center drop-shadow-2xl"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              setDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+            }}
+            draggable={false}
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?: string, winId?: string }) {
@@ -319,6 +607,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const editorRef = useRef<any>(null);
   const splitEditorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Quick Open / Command Palette
   const [quickOpen, setQuickOpen] = useState(false);
@@ -326,6 +615,8 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const [qoResults, setQoResults] = useState<string[]>([]);
   const [qoSelectedIndex, setQoSelectedIndex] = useState(0);
   const [renameModal, setRenameModal] = useState<{ path: string, initialName: string } | null>(null);
+  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const closedTabsRef = useRef<string[]>([]);
 
   const getInitialWorkspace = () => {
     if (!initialPath) return '/root';
@@ -564,22 +855,59 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   useEffect(() => { localStorage.setItem('nebucode_terminal_open', showBottomPanel.toString()); }, [showBottomPanel]);
   useEffect(() => { localStorage.setItem('nebucode_terminal_height', bottomPanelHeight.toString()); }, [bottomPanelHeight]);
 
-  interface GitStatusData {
-    isRepo: boolean;
-    notRepo?: boolean;
-    branch: string;
-    branches: string[];
-    files: Array<{ status: string; file: string }>;
-    staged: Array<{ file: string; status: string }>;
-    unstaged: Array<{ file: string; status: string }>;
-    untracked: Array<{ file: string; status: string }>;
-    clean: boolean;
-  }
-
   const [gitStatus, setGitStatus] = useState<GitStatusData | null>(null);
   const [gitCommitMsg, setGitCommitMsg] = useState('');
   const [gitLoading, setGitLoading] = useState(false);
   const [diffModal, setDiffModal] = useState<{ file: string; diff: string; staged: boolean } | null>(null);
+
+  const gitStatusMap = useMemo<Record<string, 'M' | 'D' | 'U' | 'A' | 'R'>>(() => {
+    if (!gitStatus?.files) return {};
+    const map: Record<string, 'M' | 'D' | 'U' | 'A' | 'R'> = {};
+    for (const f of gitStatus.files) {
+      const fullPath = workspace === '/' ? `/${f.file}` : `${workspace}/${f.file}`;
+      const code = f.status;
+      let norm: 'M' | 'D' | 'U' | 'A' | 'R' | null = null;
+      if (code === '??') norm = 'U';
+      else if (code.includes('M')) norm = 'M';
+      else if (code.includes('A')) norm = 'A';
+      else if (code.includes('D')) norm = 'D';
+      else if (code.includes('R')) norm = 'R';
+      if (norm) map[fullPath] = norm;
+    }
+    return map;
+  }, [gitStatus, workspace]);
+
+  const gitFolderStatusMap = useMemo<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+    const paths = Object.keys(gitStatusMap);
+    for (const p of paths) {
+      let cur = p.substring(0, p.lastIndexOf('/'));
+      while (cur && cur.length >= workspace.length) {
+        map[cur] = true;
+        cur = cur.substring(0, cur.lastIndexOf('/'));
+      }
+    }
+    return map;
+  }, [gitStatusMap, workspace]);
+
+  const displayedWorkspaceFiles = useMemo<Array<FileEntry & { isDeletedTracked?: boolean }>>(() => {
+    const list: Array<FileEntry & { isDeletedTracked?: boolean }> = [...workspaceFiles];
+    if (gitStatus?.files) {
+      for (const gf of gitStatus.files) {
+        if (gf.status.includes('D')) {
+          const fullGitPath = workspace === '/' ? `/${gf.file}` : `${workspace}/${gf.file}`;
+          const parent = fullGitPath.substring(0, fullGitPath.lastIndexOf('/')) || '/';
+          if (parent === workspace) {
+            const fileName = fullGitPath.substring(fullGitPath.lastIndexOf('/') + 1);
+            if (!list.some(c => c.name === fileName)) {
+              list.push({ name: fileName, isDir: false, size: 0, isDeletedTracked: true });
+            }
+          }
+        }
+      }
+    }
+    return list;
+  }, [workspaceFiles, gitStatus, workspace]);
 
   const refreshGitStatus = async () => {
     setGitLoading(true);
@@ -596,6 +924,10 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       setGitLoading(false);
     }
   };
+
+  useEffect(() => {
+    refreshGitStatus();
+  }, [workspace]);
 
   useEffect(() => {
     if (activeActivity === 'git') {
@@ -886,7 +1218,14 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           const res = await apiFetch(`/api/files/content?p=${encodeURIComponent(p)}`);
           if (res.ok) {
             const data = await res.json();
-            newOpenFiles.push({ path: p, content: data.content, original: data.content, isDirty: false });
+            const draft = safeStorage.getDraft(workspace, p, winId);
+            const isDraftDirty = draft !== null && draft !== data.content;
+            newOpenFiles.push({ 
+              path: p, 
+              content: isDraftDirty ? draft : data.content, 
+              original: data.content, 
+              isDirty: isDraftDirty 
+            });
           }
         }
         if (mounted) {
@@ -978,6 +1317,17 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       jumpToLine();
       return;
     }
+
+    if (isMediaFile(path)) {
+      setOpenFiles(prev => [...prev, { 
+        path, 
+        content: '', 
+        original: '', 
+        isDirty: false 
+      }]);
+      setActiveFile(path);
+      return;
+    }
     
     setLoading(true);
     try {
@@ -985,7 +1335,14 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load');
       
-      setOpenFiles(prev => [...prev, { path, content: data.content, original: data.content, isDirty: false }]);
+      const draft = safeStorage.getDraft(workspace, path, winId);
+      const isDraftDirty = draft !== null && draft !== data.content;
+      setOpenFiles(prev => [...prev, { 
+        path, 
+        content: isDraftDirty ? draft : data.content, 
+        original: data.content, 
+        isDirty: isDraftDirty 
+      }]);
       setActiveFile(path);
       jumpToLine();
     } catch (e: any) {
@@ -1010,6 +1367,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     const file = openFiles[closingIdx]!;
     
     const doClose = () => {
+      closedTabsRef.current = [path, ...closedTabsRef.current.filter(p => p !== path)].slice(0, 20);
       setOpenFiles(prev => prev.filter(f => f.path !== path));
       if (activeFile === path) {
         const nextFiles = openFiles.filter(f => f.path !== path);
@@ -1034,6 +1392,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           doClose();
         },
         onDiscard: () => {
+          safeStorage.clearDraft(workspace, path, winId);
           setUnsavedModal(null);
           doClose();
         },
@@ -1102,6 +1461,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       if (!res.ok) throw new Error('Failed to save file');
       
       setOpenFiles(prev => prev.map(f => f.path === path ? { ...f, original: f.content, isDirty: false } : f));
+      safeStorage.clearDraft(workspace, path, winId);
       setStatus(`Saved ${path.split('/').pop()}`);
       setTimeout(() => setStatus(''), 2000);
     } catch (e: any) {
@@ -1113,6 +1473,93 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     const dirtyFiles = openFiles.filter(f => f.isDirty);
     for (const f of dirtyFiles) {
       await saveFile(f.path);
+    }
+  };
+
+  const handleSaveAs = () => {
+    if (!activeFile) return;
+    const currFile = openFiles.find(f => f.path === activeFile);
+    const content = currFile?.content ?? '';
+    const currentDir = activeFile.includes('/') ? activeFile.substring(0, activeFile.lastIndexOf('/')) : workspace;
+    setPromptModal({
+      type: 'file',
+      targetDir: currentDir,
+      onSubmit: async (name) => {
+        const newPath = currentDir === '/' ? `/${name}` : `${currentDir}/${name}`;
+        try {
+          await apiFetch('/api/files/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p: currentDir, name })
+          });
+          await apiFetch('/api/files/content', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p: newPath, content })
+          });
+          loadWorkspace();
+          openFile(newPath);
+          setStatus(`Saved as ${name}`);
+          setTimeout(() => setStatus(''), 2000);
+        } catch (err: any) {
+          setStatus(`Save As failed: ${err.message}`);
+        }
+      }
+    });
+  };
+
+  const handleReopenClosedTab = () => {
+    const lastClosed = closedTabsRef.current.shift();
+    if (lastClosed) {
+      openFile(lastClosed);
+    } else {
+      setStatus('No recently closed editors to reopen');
+      setTimeout(() => setStatus(''), 1500);
+    }
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedPaths(new Set());
+    setStatus('Collapsed all folders');
+    setTimeout(() => setStatus(''), 1500);
+  };
+
+  const handleRevealActiveFile = () => {
+    if (!activeFile) return;
+    setSelectedPath(activeFile);
+    const parts = activeFile.split('/').filter(Boolean);
+    const toExpand = new Set(expandedPaths);
+    let curr = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      curr += '/' + parts[i];
+      toExpand.add(curr);
+    }
+    setExpandedPaths(toExpand);
+    setActiveActivity('explorer');
+    setStatus(`Revealed ${activeFile.split('/').pop()}`);
+    setTimeout(() => setStatus(''), 1500);
+  };
+
+  const handleExportWorkspace = () => {
+    const json = safeStorage.exportWorkspace(workspace, winId);
+    navigator.clipboard.writeText(json).then(() => {
+      setStatus('Workspace configuration copied to clipboard!');
+      setTimeout(() => setStatus(''), 2500);
+    }).catch(() => {
+      setStatus('Failed to copy to clipboard');
+    });
+  };
+
+  const handleImportWorkspace = () => {
+    const jsonStr = prompt('Paste Workspace Configuration JSON:');
+    if (!jsonStr) return;
+    const ok = safeStorage.importWorkspace(workspace, jsonStr, winId);
+    if (ok) {
+      setStatus('Workspace configuration imported! Reloading...');
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      setStatus('Invalid workspace configuration JSON');
+      setTimeout(() => setStatus(''), 2000);
     }
   };
 
@@ -1175,13 +1622,28 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       setActiveActivity(prev => prev === 'commandCenter' ? null : 'commandCenter');
     });
 
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      if (activeFile) saveFile(activeFile);
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS, () => {
+      handleSaveAs();
+    });
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyT, () => {
+      handleReopenClosedTab();
+    });
+
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyG, () => {
       setActiveActivity('git');
     });
 
     editor.onDidChangeCursorPosition((e: any) => {
-      if (activeFile && e?.position) {
-        saveCursorPosition(activeFile, e.position.lineNumber, e.position.column);
+      if (e?.position) {
+        setCursorPos({ line: e.position.lineNumber, col: e.position.column });
+        if (activeFile) {
+          saveCursorPosition(activeFile, e.position.lineNumber, e.position.column);
+        }
       }
     });
 
@@ -1298,15 +1760,282 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     }
   }, [activeFile]);
 
+  // Monaco Git diff gutter decorations (scoped strictly to activeFile)
+  const gitDecorationsRef = useRef<string[]>([]);
+
+  const updateGitDiffDecorations = useCallback(async () => {
+    if (!editorRef.current || !monacoRef.current || !activeFile || activeFile.startsWith('preview:')) {
+      return;
+    }
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    const status = gitStatusMap[activeFile];
+    if (!status) {
+      gitDecorationsRef.current = editorRef.current.deltaDecorations(gitDecorationsRef.current, []);
+      return;
+    }
+
+    const relPath = activeFile.startsWith(workspace)
+      ? activeFile.slice(workspace.length).replace(/^\/+/, '')
+      : activeFile;
+
+    try {
+      const data = await apiJson<{ diff?: string }>(`/api/git/diff?p=${encodeURIComponent(workspace)}&file=${encodeURIComponent(relPath)}`);
+      if (!data.diff) {
+        gitDecorationsRef.current = editorRef.current.deltaDecorations(gitDecorationsRef.current, []);
+        return;
+      }
+
+      const ranges = parseUnifiedDiffToRanges(data.diff);
+      const monacoDecorations = ranges.map(r => ({
+        range: new monacoRef.current.Range(r.startLine, 1, r.endLine, 1),
+        options: {
+          isWholeLine: true,
+          linesDecorationsClassName: r.type === 'add'
+            ? 'git-gutter-added'
+            : r.type === 'mod'
+              ? 'git-gutter-modified'
+              : 'git-gutter-deleted'
+        }
+      }));
+
+      gitDecorationsRef.current = editorRef.current.deltaDecorations(gitDecorationsRef.current, monacoDecorations);
+    } catch {
+      gitDecorationsRef.current = editorRef.current.deltaDecorations(gitDecorationsRef.current, []);
+    }
+  }, [activeFile, workspace, gitStatusMap]);
+
+  useEffect(() => {
+    updateGitDiffDecorations();
+  }, [updateGitDiffDecorations]);
+
+  // Conflict resolution handlers for external modifications
+  const handleReloadFromDisk = async (filePath: string | null) => {
+    if (!filePath) return;
+    try {
+      const res = await apiFetch(`/api/files/content?p=${encodeURIComponent(filePath)}`);
+      if (!res.ok) throw new Error('File not found or unreadable');
+      const data = await res.json();
+      const diskContent = data.content ?? '';
+
+      const pos = editorRef.current?.getPosition();
+      const scroll = editorRef.current?.getScrollTop();
+
+      if (activeFile === filePath && editorRef.current) {
+        editorRef.current.setValue(diskContent);
+        if (pos) editorRef.current.setPosition(pos);
+        if (scroll !== undefined) editorRef.current.setScrollTop(scroll);
+      }
+
+      setOpenFiles(prev => prev.map(f => {
+        if (f.path !== filePath) return f;
+        return {
+          ...f,
+          content: diskContent,
+          original: diskContent,
+          isDirty: false,
+          externalConflict: false,
+          diskContent: undefined
+        };
+      }));
+
+      safeStorage.clearDraft(workspace, filePath, winId);
+      setStatus(`Reloaded ${filePath.split('/').pop()} from disk`);
+      setTimeout(() => setStatus(''), 2000);
+      updateGitDiffDecorations();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setStatus(`Failed to reload: ${message}`);
+    }
+  };
+
+  const handleKeepLocalChanges = (filePath: string | null) => {
+    if (!filePath) return;
+    setOpenFiles(prev => prev.map(f => {
+      if (f.path !== filePath) return f;
+      return {
+        ...f,
+        externalConflict: false
+      };
+    }));
+    setStatus(`Retained local changes for ${filePath.split('/').pop()}`);
+    setTimeout(() => setStatus(''), 2000);
+  };
+
+  // Keep live references for WebSocket callbacks to prevent reconnections on keystrokes
+  const openFilesRef = useRef<OpenFile[]>(openFiles);
+  openFilesRef.current = openFiles;
+
+  const activeFileRef = useRef<string | null>(activeFile);
+  activeFileRef.current = activeFile;
+
+  // External Filesystem Watcher WebSocket Connection with lifecycle management
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const connectWatcher = () => {
+      if (isDisposed) return;
+      const wsUrl = `${WS_BASE_URL}/ws/files/watch?workspace=${encodeURIComponent(workspace)}`;
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = async (event) => {
+          try {
+            const msg = JSON.parse(event.data) as WatcherBatchMessage;
+            if (msg.type !== 'fs.batch' || msg.workspace !== workspace) return;
+
+            // Invalidate/refresh Git status once per batch
+            if (msg.gitMayHaveChanged) {
+              refreshGitStatus();
+            }
+
+            // Refresh affected directory nodes only
+            const affectedDirs = new Set<string>();
+            let shouldRefreshRoot = false;
+
+            for (const ch of msg.changes) {
+              if (ch.event === 'create' || ch.event === 'delete') {
+                if (ch.parentDir === workspace) {
+                  shouldRefreshRoot = true;
+                } else {
+                  affectedDirs.add(ch.parentDir);
+                }
+              }
+            }
+
+            if (shouldRefreshRoot) {
+              loadWorkspace();
+            }
+
+            for (const dir of affectedDirs) {
+              window.dispatchEvent(new CustomEvent('nebucode:refresh-dir', { detail: { dir } }));
+            }
+
+            // Synchronize open files
+            for (const ch of msg.changes) {
+              const currentOpenFiles = openFilesRef.current;
+              const openFile = currentOpenFiles.find(f => f.path === ch.path);
+              if (!openFile) continue;
+
+              try {
+                const res = await apiFetch(`/api/files/content?p=${encodeURIComponent(ch.path)}`);
+                if (!res.ok) {
+                  if (res.status === 404) {
+                    if (!openFile.isDirty) {
+                      setStatus(`File deleted on disk: ${ch.path.split('/').pop()}`);
+                    } else {
+                      setOpenFiles(prev => prev.map(f => f.path === ch.path ? { ...f, externalConflict: true } : f));
+                    }
+                  }
+                  continue;
+                }
+
+                const data = await res.json();
+                const diskContent = data.content ?? '';
+
+                // Content comparison: prevent unnecessary reloads
+                if (diskContent === openFile.content) {
+                  continue;
+                }
+
+                if (!openFile.isDirty) {
+                  // Clean buffer: safe to auto-reload
+                  const pos = editorRef.current?.getPosition();
+                  const scroll = editorRef.current?.getScrollTop();
+
+                  if (activeFileRef.current === ch.path && editorRef.current) {
+                    editorRef.current.setValue(diskContent);
+                    if (pos) editorRef.current.setPosition(pos);
+                    if (scroll !== undefined) editorRef.current.setScrollTop(scroll);
+                  }
+
+                  setOpenFiles(prev => prev.map(f => {
+                    if (f.path !== ch.path) return f;
+                    return {
+                      ...f,
+                      content: diskContent,
+                      original: diskContent,
+                      isDirty: false,
+                      externalConflict: false,
+                      diskContent: undefined
+                    };
+                  }));
+
+                  safeStorage.clearDraft(workspace, ch.path, winId);
+                  setStatus(`Updated ${ch.path.split('/').pop()} from disk`);
+                  setTimeout(() => setStatus(''), 2000);
+                } else {
+                  // Dirty buffer: NEVER overwrite automatically
+                  setOpenFiles(prev => prev.map(f => {
+                    if (f.path !== ch.path) return f;
+                    return {
+                      ...f,
+                      externalConflict: true,
+                      diskContent
+                    };
+                  }));
+                }
+              } catch {
+                // Ignore transient read errors
+              }
+            }
+          } catch {
+            // Ignore malformed message
+          }
+        };
+
+        ws.onclose = () => {
+          if (!isDisposed) {
+            reconnectTimer = setTimeout(connectWatcher, 3000);
+          }
+        };
+
+        ws.onerror = () => {
+          try { ws?.close(); } catch {}
+        };
+      } catch {
+        if (!isDisposed) {
+          reconnectTimer = setTimeout(connectWatcher, 3000);
+        }
+      }
+    };
+
+    connectWatcher();
+
+    const handleWindowFocus = () => {
+      refreshGitStatus();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      window.removeEventListener('focus', handleWindowFocus);
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [workspace, winId]);
+
   const handleEditorChange = (value: string | undefined, path: string | null) => {
     if (!path) return;
     const val = value ?? '';
+    const current = openFiles.find(f => f.path === path);
+    const isDirty = current ? val !== current.original : false;
+    if (isDirty) {
+      safeStorage.saveDraft(workspace, path, val, winId);
+    } else {
+      safeStorage.clearDraft(workspace, path, winId);
+    }
     setOpenFiles(prev => prev.map(f => {
       if (f.path !== path) return f;
       return {
         ...f,
         content: val,
-        isDirty: val !== f.original
+        isDirty
       };
     }));
   };
@@ -1439,13 +2168,19 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const handleKeyDown = (e: React.KeyboardEvent) => {
     const isCmd = e.ctrlKey || e.metaKey;
 
-    if (isCmd && e.key === 's') {
+    if (isCmd && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
       if (e.shiftKey) {
-        saveAll();
+        handleSaveAs();
       } else if (activeFile) {
         saveFile(activeFile);
       }
+      return;
+    }
+
+    if (isCmd && e.shiftKey && (e.key === 't' || e.key === 'T')) {
+      e.preventDefault();
+      handleReopenClosedTab();
       return;
     }
 
@@ -1627,8 +2362,25 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    const clampedX = Math.min(e.clientX, window.innerWidth - 220);
-    const clampedY = Math.min(e.clientY, window.innerHeight - 380);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const localX = rect ? e.clientX - rect.left : e.clientX;
+    const localY = rect ? e.clientY - rect.top : e.clientY;
+    const contW = rect ? rect.width : window.innerWidth;
+    const contH = rect ? rect.height : window.innerHeight;
+    
+    const estimatedHeight = isDir ? 400 : 380;
+    const maxX = Math.max(8, contW - 220);
+    
+    let yPos = localY;
+    if (localY + estimatedHeight > contH - 10) {
+      if (localY - estimatedHeight >= 10) {
+        yPos = localY - estimatedHeight;
+      } else {
+        yPos = Math.max(8, contH - estimatedHeight - 10);
+      }
+    }
+    const clampedX = Math.min(Math.max(8, localX), maxX);
+    const clampedY = Math.max(8, yPos);
     setContextMenu({ x: clampedX, y: clampedY, path: targetPath, isDir });
     setTabContextMenu(null);
   };
@@ -1636,8 +2388,24 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const handleTabContextMenu = (e: React.MouseEvent, tabPath: string) => {
     e.preventDefault();
     e.stopPropagation();
-    const clampedX = Math.min(e.clientX, window.innerWidth - 220);
-    const clampedY = Math.min(e.clientY, window.innerHeight - 300);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const localX = rect ? e.clientX - rect.left : e.clientX;
+    const localY = rect ? e.clientY - rect.top : e.clientY;
+    const contW = rect ? rect.width : window.innerWidth;
+    const contH = rect ? rect.height : window.innerHeight;
+    
+    const estimatedHeight = 260;
+    const maxX = Math.max(8, contW - 200);
+    let yPos = localY;
+    if (localY + estimatedHeight > contH - 10) {
+      if (localY - estimatedHeight >= 10) {
+        yPos = localY - estimatedHeight;
+      } else {
+        yPos = Math.max(8, contH - estimatedHeight - 10);
+      }
+    }
+    const clampedX = Math.min(Math.max(8, localX), maxX);
+    const clampedY = Math.max(8, yPos);
     setTabContextMenu({ x: clampedX, y: clampedY, path: tabPath });
     setContextMenu(null);
   };
@@ -1656,42 +2424,63 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
     return langMap[ext] || 'plaintext';
   };
 
-  // Commands for Palette
+  // Commands for Palette & Central Command Registry
   const commands = [
-    { id: 'new-file', title: 'File: New File', icon: <FilePlus size={14} />, run: () => setPromptModal({ type: 'file', targetDir: workspace, onSubmit: async (name) => {
+    { id: 'new-file', title: 'File: New File', category: 'File', icon: <FilePlus size={14} />, run: () => setPromptModal({ type: 'file', targetDir: workspace, onSubmit: async (name) => {
       await apiFetch('/api/files/file', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p: workspace, name }) });
       loadWorkspace();
       openFile(workspace === '/' ? `/${name}` : `${workspace}/${name}`);
     }}) },
-    { id: 'new-folder', title: 'File: New Folder', icon: <FolderPlus size={14} />, run: () => setPromptModal({ type: 'folder', targetDir: workspace, onSubmit: async (name) => {
+    { id: 'new-folder', title: 'File: New Folder', category: 'File', icon: <FolderPlus size={14} />, run: () => setPromptModal({ type: 'folder', targetDir: workspace, onSubmit: async (name) => {
       await apiFetch('/api/files/folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p: workspace, name }) });
       loadWorkspace();
     }}) },
-    { id: 'save-file', title: 'File: Save Active File', icon: <File size={14} />, run: () => activeFile && saveFile(activeFile) },
-    { id: 'save-all', title: 'File: Save All Files', icon: <FileText size={14} />, run: () => saveAll() },
-    { id: 'close-editor', title: 'File: Close Active Editor', icon: <X size={14} />, run: () => activeFile && closeFile(null, activeFile) },
-    { id: 'close-all', title: 'File: Close All Editors', icon: <Trash2 size={14} />, run: () => closeAll() },
-    { id: 'toggle-sidebar', title: 'View: Toggle Primary Side Bar', icon: <LayoutPanelLeft size={14} />, run: () => setActiveActivity(prev => prev ? null : 'explorer') },
-    { id: 'toggle-terminal', title: 'View: Toggle Integrated Terminal', icon: <TerminalSquare size={14} />, run: () => setShowBottomPanel(prev => !prev) },
-    { id: 'split-right', title: 'View: Split Editor Right', icon: <Columns size={14} />, run: () => { if (activeFile) { setSplitFile(activeFile); setSplitOrientation('horizontal'); } } },
-    { id: 'split-down', title: 'View: Split Editor Down', icon: <Columns size={14} />, run: () => { if (activeFile) { setSplitFile(activeFile); setSplitOrientation('vertical'); } } },
-    { id: 'ports-preview', title: 'View: Toggle Ports & Preview', icon: <Play size={14} />, run: () => { setShowBottomPanel(true); setBottomPanelTab('ports'); } },
-    { id: 'refresh', title: 'Explorer: Refresh Workspace', icon: <RefreshCw size={14} />, run: () => loadWorkspace() },
-    { id: 'new-terminal', title: 'Terminal: Create New Terminal', icon: <Plus size={14} />, run: () => addTerminal(workspace) },
-    { id: 'command-center', title: 'View: Developer Command Center', icon: <Activity size={14} />, run: () => setActiveActivity('commandCenter') },
-    { id: 'git-panel', title: 'View: Source Control / Git', icon: <GitBranch size={14} />, run: () => setActiveActivity('git') },
-    { id: 'run-dev', title: 'Project: Run Dev Server', icon: <Play size={14} />, run: () => handleRunCommandCenterAction('dev') },
-    { id: 'run-build', title: 'Project: Build Project', icon: <Hammer size={14} />, run: () => handleRunCommandCenterAction('build') },
-    { id: 'run-test', title: 'Project: Run Tests', icon: <CheckCircle2 size={14} />, run: () => handleRunCommandCenterAction('test') },
-    { id: 'run-lint', title: 'Project: Run Linter', icon: <Check size={14} />, run: () => handleRunCommandCenterAction('lint') }
+    { id: 'save-file', title: 'File: Save Active File', category: 'File', shortcut: 'Ctrl+S', icon: <File size={14} />, run: () => activeFile && saveFile(activeFile) },
+    { id: 'save-as', title: 'File: Save As...', category: 'File', shortcut: 'Ctrl+Shift+S', icon: <FileText size={14} />, run: () => handleSaveAs() },
+    { id: 'save-all', title: 'File: Save All Files', category: 'File', icon: <FileText size={14} />, run: () => saveAll() },
+    { id: 'reopen-closed', title: 'File: Reopen Closed Editor', category: 'File', shortcut: 'Ctrl+Shift+T', icon: <RotateCcw size={14} />, run: () => handleReopenClosedTab() },
+    { id: 'close-editor', title: 'File: Close Active Editor', category: 'File', shortcut: 'Ctrl+W', icon: <X size={14} />, run: () => activeFile && closeFile(null, activeFile) },
+    { id: 'close-all', title: 'File: Close All Editors', category: 'File', icon: <Trash2 size={14} />, run: () => closeAll() },
+    { id: 'collapse-folders', title: 'Explorer: Collapse All Folders', category: 'Explorer', icon: <ChevronsDownUp size={14} />, run: () => handleCollapseAll() },
+    { id: 'reveal-active', title: 'Explorer: Reveal Active File in Explorer', category: 'Explorer', icon: <Crosshair size={14} />, run: () => handleRevealActiveFile() },
+    { id: 'toggle-sidebar', title: 'View: Toggle Primary Side Bar', category: 'View', shortcut: 'Ctrl+B', icon: <LayoutPanelLeft size={14} />, run: () => setActiveActivity(prev => prev ? null : 'explorer') },
+    { id: 'toggle-terminal', title: 'View: Toggle Integrated Terminal', category: 'View', shortcut: 'Ctrl+`', icon: <TerminalSquare size={14} />, run: () => setShowBottomPanel(prev => !prev) },
+    { id: 'split-right', title: 'View: Split Editor Right', category: 'View', shortcut: 'Ctrl+\\', icon: <Columns size={14} />, run: () => { if (activeFile) { setSplitFile(activeFile); setSplitOrientation('horizontal'); } } },
+    { id: 'split-down', title: 'View: Split Editor Down', category: 'View', icon: <Columns size={14} />, run: () => { if (activeFile) { setSplitFile(activeFile); setSplitOrientation('vertical'); } } },
+    { id: 'ports-preview', title: 'View: Toggle Ports & Preview', category: 'View', icon: <Play size={14} />, run: () => { setShowBottomPanel(true); setBottomPanelTab('ports'); } },
+    { id: 'refresh', title: 'Explorer: Refresh Workspace', category: 'Explorer', icon: <RefreshCw size={14} />, run: () => loadWorkspace() },
+    { id: 'new-terminal', title: 'Terminal: Create New Terminal', category: 'Terminal', icon: <Plus size={14} />, run: () => addTerminal(workspace) },
+    { id: 'command-center', title: 'View: Developer Command Center', category: 'View', shortcut: 'Ctrl+Shift+C', icon: <Activity size={14} />, run: () => setActiveActivity('commandCenter') },
+    { id: 'git-panel', title: 'View: Source Control / Git', category: 'Git', shortcut: 'Ctrl+Shift+G', icon: <GitBranch size={14} />, run: () => setActiveActivity('git') },
+    { id: 'run-dev', title: 'Project: Run Dev Server', category: 'Project', icon: <Play size={14} />, run: () => handleRunCommandCenterAction('dev') },
+    { id: 'run-build', title: 'Project: Build Project', category: 'Project', icon: <Hammer size={14} />, run: () => handleRunCommandCenterAction('build') },
+    { id: 'run-test', title: 'Project: Run Tests', category: 'Project', icon: <CheckCircle2 size={14} />, run: () => handleRunCommandCenterAction('test') },
+    { id: 'run-lint', title: 'Project: Run Linter', category: 'Project', icon: <Check size={14} />, run: () => handleRunCommandCenterAction('lint') },
+    { id: 'export-workspace', title: 'Workspace: Export Configuration', category: 'Workspace', icon: <Download size={14} />, run: () => handleExportWorkspace() },
+    { id: 'import-workspace', title: 'Workspace: Import Configuration', category: 'Workspace', icon: <ArrowDown size={14} />, run: () => handleImportWorkspace() }
   ];
+
+  useEffect(() => {
+    const unregister = commandRegistry.registerMany(
+      commands.map(c => ({
+        id: c.id,
+        title: c.title,
+        category: c.category,
+        shortcut: c.shortcut,
+        icon: c.icon,
+        context: 'code',
+        action: c.run
+      }))
+    );
+    return unregister;
+  }, [workspace, activeFile, openFiles]);
 
   const filteredCommands = commands.filter(c => 
     c.title.toLowerCase().includes(qoQuery.slice(1).trim().toLowerCase())
   );
 
   return (
-    <div className="h-full flex flex-col bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden select-none outline-none" onKeyDown={handleKeyDown} tabIndex={0}>
+    <div ref={containerRef} className="nebucode-app h-full flex flex-col bg-[#1e1e1e] text-[#cccccc] font-sans overflow-hidden select-none outline-none relative" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Titlebar */}
       <div className="h-14 bg-[#333333] border-b border-[#252526] flex items-center shrink-0 nebudesk-drag-region select-none touch-none">
         <div className="w-[90px] shrink-0"></div>
@@ -1744,7 +2533,20 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             <Activity size={24} strokeWidth={1.5} />
           </button>
           <div className="flex-1"></div>
-          <button className="p-2 text-gray-400 hover:text-gray-200" title="Settings">
+          <button 
+            onClick={() => {
+              store.openWindow({
+                appId: 'settings',
+                title: 'Settings',
+                x: 200, y: 140,
+                width: 650, height: 480,
+                minWidth: 500, minHeight: 400,
+                minimized: false, maximized: false
+              } as any, true);
+            }}
+            className="p-2 text-gray-400 hover:text-gray-200 cursor-pointer" 
+            title="Settings"
+          >
             <Settings size={24} strokeWidth={1.5} />
           </button>
         </div>
@@ -1808,6 +2610,28 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
+                        handleRevealActiveFile();
+                      }} 
+                      title="Reveal Active File in Explorer" 
+                      className="p-1 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"
+                    >
+                      <Crosshair size={13} />
+                    </button>
+
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCollapseAll();
+                      }} 
+                      title="Collapse All Folders" 
+                      className="p-1 hover:bg-[#3e3e42] rounded text-gray-400 hover:text-white"
+                    >
+                      <ChevronsDownUp size={13} />
+                    </button>
+
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowBottomPanel(prev => !prev);
                       }} 
                       title="Toggle Terminal (Ctrl+`)" 
@@ -1853,7 +2677,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 </div>
                 
                 <div className="mt-1">
-                  {workspaceFiles.map(child => (
+                  {displayedWorkspaceFiles.map(child => (
                     <FileTreeNode 
                       key={child.name}
                       name={child.name}
@@ -1867,6 +2691,11 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                       onContextMenu={handleContextMenu}
                       selectedPath={selectedPath}
                       onSelectPath={setSelectedPath}
+                      gitStatusMap={gitStatusMap}
+                      gitFolderStatusMap={gitFolderStatusMap}
+                      isDeletedTracked={child.isDeletedTracked}
+                      workspace={workspace}
+                      gitStatus={gitStatus}
                     />
                   ))}
                 </div>
@@ -2613,6 +3442,27 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                   <span className="truncate flex-1" title={f.path}>
                     {f.path.startsWith('preview:') ? `Preview :${f.path.split(':')[1]}` : name}
                   </span>
+                  {gitStatusMap[f.path] && (
+                    <span 
+                      className={`text-[9px] font-mono font-bold px-1 rounded ml-1 shrink-0 ${
+                        gitStatusMap[f.path] === 'M' ? 'text-amber-400 bg-amber-950/40' :
+                        gitStatusMap[f.path] === 'D' ? 'text-red-400 bg-red-950/40' :
+                        gitStatusMap[f.path] === 'U' || gitStatusMap[f.path] === 'A' ? 'text-emerald-400 bg-emerald-950/40' :
+                        'text-blue-400 bg-blue-950/40'
+                      }`}
+                      title={`Git: ${gitStatusMap[f.path]}`}
+                    >
+                      {gitStatusMap[f.path]}
+                    </span>
+                  )}
+                  {f.externalConflict && (
+                    <span 
+                      className="text-[9px] font-bold px-1 rounded ml-1 bg-amber-600 text-white animate-pulse shrink-0" 
+                      title="File changed on disk while dirty"
+                    >
+                      conflict
+                    </span>
+                  )}
                   {f.isDirty && <div className="w-2 h-2 rounded-full bg-white ml-1.5 opacity-70 shrink-0" title="Unsaved changes"></div>}
                   {isActive && (
                     <button 
@@ -2680,7 +3530,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 <div className="absolute inset-0 flex items-center justify-center text-gray-500">Loading...</div>
               ) : !activeFile ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 space-y-4 select-none">
-                  <div className="text-5xl opacity-30">⚡</div>
+                  <Code2 size={56} className="text-gray-500/30 stroke-[1.2]" />
                   <div className="text-xl font-medium text-gray-400">NebuCode IDE Workspace</div>
                   <div className="text-xs text-gray-500 max-w-sm text-center leading-relaxed">
                     Select a file from the explorer, press <kbd className="bg-[#2d2d2d] text-gray-300 px-1.5 py-0.5 rounded font-mono">Ctrl+P</kbd> to search files, or <kbd className="bg-[#2d2d2d] text-gray-300 px-1.5 py-0.5 rounded font-mono">Ctrl+`</kbd> to open terminal.
@@ -2713,21 +3563,62 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                   />
                 </div>
               ) : (
-                <Editor
-                  height="100%"
-                  onMount={handleEditorDidMount}
-                  language={getLang(activeFile)}
-                  theme="vs-dark"
-                  value={activeFileData?.content || ''}
-                  onChange={(val) => handleEditorChange(val, activeFile)}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    wordWrap: 'on',
-                    formatOnPaste: true,
-                    padding: { top: 16 }
-                  }}
-                />
+                <div className="flex-1 flex flex-col w-full h-full overflow-hidden relative">
+                  {activeFileData?.externalConflict && (
+                    <div className="bg-amber-950/90 border-b border-amber-500/80 px-4 py-2 flex items-center justify-between text-xs text-amber-200 shrink-0 z-20 shadow-md">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle size={16} className="text-amber-400 shrink-0 animate-pulse" />
+                        <span>
+                          <strong>External Modification:</strong> This file has been changed on disk by an external process.
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleReloadFromDisk(activeFile)}
+                          className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors cursor-pointer"
+                          title="Discard local edits and reload latest version from disk"
+                        >
+                          Reload from Disk
+                        </button>
+                        <button 
+                          onClick={() => handleKeepLocalChanges(activeFile)}
+                          className="px-2.5 py-1 rounded bg-[#333] hover:bg-[#444] text-gray-200 font-medium transition-colors cursor-pointer"
+                          title="Keep your current unsaved editor buffer"
+                        >
+                          Keep Local Changes
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex-1 w-full h-full relative">
+                    {isMediaFile(activeFile) ? (
+                      <MediaPreviewPane path={activeFile} />
+                    ) : (
+                      <Editor
+                        height="100%"
+                        onMount={handleEditorDidMount}
+                        language={getLang(activeFile)}
+                        theme="vs-dark"
+                        value={activeFileData?.content || ''}
+                        onChange={(val) => handleEditorChange(val, activeFile)}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 14,
+                          wordWrap: 'on',
+                          formatOnPaste: true,
+                          padding: { top: 16 },
+                          scrollbar: {
+                            vertical: 'visible',
+                            horizontal: 'visible',
+                            verticalScrollbarSize: 10,
+                            horizontalScrollbarSize: 10,
+                            useShadows: false
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -2759,21 +3650,32 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                     </div>
                   </div>
                   <div className="flex-1 relative">
-                    <Editor
-                      height="100%"
-                      onMount={(editor) => { splitEditorRef.current = editor; }}
-                      language={getLang(splitFile)}
-                      theme="vs-dark"
-                      value={openFiles.find(f => f.path === splitFile)?.content || ''}
-                      onChange={(val) => handleEditorChange(val, splitFile)}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        wordWrap: 'on',
-                        formatOnPaste: true,
-                        padding: { top: 16 }
-                      }}
-                    />
+                    {isMediaFile(splitFile) ? (
+                      <MediaPreviewPane path={splitFile} />
+                    ) : (
+                      <Editor
+                        height="100%"
+                        onMount={(editor) => { splitEditorRef.current = editor; }}
+                        language={getLang(splitFile)}
+                        theme="vs-dark"
+                        value={openFiles.find(f => f.path === splitFile)?.content || ''}
+                        onChange={(val) => handleEditorChange(val, splitFile)}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 14,
+                          wordWrap: 'on',
+                          formatOnPaste: true,
+                          padding: { top: 16 },
+                          scrollbar: {
+                            vertical: 'visible',
+                            horizontal: 'visible',
+                            verticalScrollbarSize: 10,
+                            horizontalScrollbarSize: 10,
+                            useShadows: false
+                          }
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
               </>
@@ -3108,7 +4010,7 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
           
           {/* Status Bar Bottom */}
           <div className="h-6 bg-[#007acc] text-white flex items-center px-3 text-xs justify-between shrink-0">
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 items-center">
               <span className="flex items-center hover:bg-white/20 px-1 rounded cursor-pointer"><GitBranch size={12} className="mr-1" /> {gitStatus?.branch || 'master'}</span>
               {problems.length > 0 ? (
                 <span 
@@ -3129,9 +4031,30 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                   <span>0 errors, 0 warnings</span>
                 </span>
               )}
+              {(() => {
+                const runningCount = ccSummary?.processes?.filter(p => p.status === 'running' || p.status === 'starting').length || 0;
+                if (runningCount > 0) {
+                  return (
+                    <span 
+                      onClick={() => { setShowBottomPanel(true); setBottomPanelTab('ports'); }}
+                      className="flex items-center gap-1 bg-blue-900/60 hover:bg-blue-800/80 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-[11px]"
+                      title="View active processes & ports"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>{runningCount} running</span>
+                    </span>
+                  );
+                }
+                return null;
+              })()}
               {clipboard && <span className="hover:bg-white/20 px-1 rounded cursor-pointer">Clipboard: {clipboard.op.toUpperCase()} "{clipboard.name}"</span>}
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-3 items-center">
+              {activeFile && (
+                <span className="hover:bg-white/20 px-1 rounded cursor-pointer font-mono text-[11px]" title="Cursor Position">
+                  Ln {cursorPos.line}, Col {cursorPos.col}
+                </span>
+              )}
               <span className="hover:bg-white/20 px-1 rounded cursor-pointer">UTF-8</span>
               <span className="hover:bg-white/20 px-1 rounded cursor-pointer">{activeFile ? getLang(activeFile) : 'Plain Text'}</span>
               <span className="hover:bg-white/20 px-1 rounded cursor-pointer" onClick={() => editorRef.current?.getAction('editor.action.formatDocument')?.run()}>Format</span>
@@ -3452,9 +4375,9 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       {/* Explorer Context Menu */} 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}></div>
+          <div className="absolute inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}></div>
           <div 
-            className="fixed z-50 bg-[#252526] border border-[#3e3e42] shadow-2xl rounded py-1 min-w-[210px] text-xs text-[#cccccc]"
+            className="absolute z-50 bg-[#252526] border border-[#3e3e42] shadow-2xl rounded py-1 min-w-[210px] max-h-[calc(100%-20px)] overflow-y-auto [scrollbar-width:thin] text-xs text-[#cccccc]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             {contextMenu.isDir ? (
@@ -3594,6 +4517,23 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                 >
                   Open in New Window
                 </button>
+                <button 
+                  onClick={() => {
+                    store.openWindow({
+                      appId: 'files',
+                      title: 'Finder',
+                      x: 160, y: 120,
+                      width: 880, height: 560,
+                      minWidth: 600, minHeight: 400,
+                      minimized: false, maximized: false,
+                      path: contextMenu.path
+                    } as any, true);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <FolderOpen size={13} className="text-blue-400" /> Reveal in Finder
+                </button>
               </>
             ) : (
               <>
@@ -3608,6 +4548,44 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
                   className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
                 >
                   <Columns size={13} /> Open to the Side
+                </button>
+                {isMediaFile(contextMenu.path) && (
+                  <button 
+                    onClick={() => {
+                      const fileName = contextMenu.path.split('/').pop() || 'Media';
+                      store.openWindow({
+                        appId: 'image',
+                        title: fileName,
+                        x: 180, y: 130,
+                        width: 860, height: 560,
+                        minWidth: 500, minHeight: 350,
+                        minimized: false, maximized: false,
+                        path: contextMenu.path
+                      } as any, true);
+                      setContextMenu(null);
+                    }}
+                    className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
+                  >
+                    <ImageIcon size={13} className="text-pink-400" /> Open in Media Viewer
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    const parentDir = contextMenu.path.substring(0, contextMenu.path.lastIndexOf('/')) || '/';
+                    store.openWindow({
+                      appId: 'files',
+                      title: 'Finder',
+                      x: 160, y: 120,
+                      width: 880, height: 560,
+                      minWidth: 600, minHeight: 400,
+                      minimized: false, maximized: false,
+                      path: parentDir
+                    } as any, true);
+                    setContextMenu(null);
+                  }}
+                  className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
+                >
+                  <FolderOpen size={13} className="text-blue-400" /> Reveal in Finder
                 </button>
 
                 <div className="border-t border-[#3e3e42] my-1"></div>
@@ -3677,9 +4655,9 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
       {/* Tab Context Menu */}
       {tabContextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setTabContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setTabContextMenu(null); }}></div>
+          <div className="absolute inset-0 z-40" onClick={() => setTabContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setTabContextMenu(null); }}></div>
           <div 
-            className="fixed z-50 bg-[#252526] border border-[#3e3e42] shadow-2xl rounded py-1 min-w-[190px] text-xs text-[#cccccc]"
+            className="absolute z-50 bg-[#252526] border border-[#3e3e42] shadow-2xl rounded py-1 min-w-[190px] max-h-[calc(100%-20px)] overflow-y-auto [scrollbar-width:thin] text-xs text-[#cccccc]"
             style={{ left: tabContextMenu.x, top: tabContextMenu.y }}
           >
             <button 
@@ -3688,6 +4666,13 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             >
               <span>Close</span>
               <span className="text-[10px] text-gray-400">Ctrl+W</span>
+            </button>
+            <button 
+              onClick={() => { handleReopenClosedTab(); setTabContextMenu(null); }}
+              className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex justify-between items-center"
+            >
+              <span>Reopen Closed Editor</span>
+              <span className="text-[10px] text-gray-400">Ctrl+Shift+T</span>
             </button>
             <button 
               onClick={() => { closeOthers(tabContextMenu.path); setTabContextMenu(null); }}
@@ -3717,6 +4702,14 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
             <div className="border-t border-[#3e3e42] my-1"></div>
 
             <button 
+              onClick={() => { handleSaveAs(); setTabContextMenu(null); }}
+              className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex justify-between items-center"
+            >
+              <span>Save As...</span>
+              <span className="text-[10px] text-gray-400">Ctrl+Shift+S</span>
+            </button>
+
+            <button 
               onClick={() => { openToSide(tabContextMenu.path); setTabContextMenu(null); }}
               className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
             >
@@ -3736,6 +4729,47 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
               className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors"
             >
               Copy Relative Path
+            </button>
+
+            <div className="border-t border-[#3e3e42] my-1"></div>
+
+            {isMediaFile(tabContextMenu.path) && (
+              <button 
+                onClick={() => {
+                  const fileName = tabContextMenu.path.split('/').pop() || 'Media';
+                  store.openWindow({
+                    appId: 'image',
+                    title: fileName,
+                    x: 180, y: 130,
+                    width: 860, height: 560,
+                    minWidth: 500, minHeight: 350,
+                    minimized: false, maximized: false,
+                    path: tabContextMenu.path
+                  } as any, true);
+                  setTabContextMenu(null);
+                }}
+                className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
+              >
+                <ImageIcon size={13} className="text-pink-400" /> Open in Media Viewer
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                const parentDir = tabContextMenu.path.substring(0, tabContextMenu.path.lastIndexOf('/')) || '/';
+                store.openWindow({
+                  appId: 'files',
+                  title: 'Finder',
+                  x: 160, y: 120,
+                  width: 880, height: 560,
+                  minWidth: 600, minHeight: 400,
+                  minimized: false, maximized: false,
+                  path: parentDir
+                } as any, true);
+                setTabContextMenu(null);
+              }}
+              className="w-full text-left px-3.5 py-1.5 hover:bg-[#094771] hover:text-white transition-colors flex items-center gap-2"
+            >
+              <FolderOpen size={13} className="text-blue-400" /> Reveal in Finder
             </button>
           </div>
         </>

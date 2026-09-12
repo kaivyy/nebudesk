@@ -28,13 +28,32 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         credentials: "include"
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data.mustChangePassword) {
+          const newPass = prompt("SECURITY NOTICE: You are using the default admin credential. Please enter a new password to continue:");
+          if (!newPass || newPass.trim() === '') {
+            setError('Password change cancelled. Setup required.');
+            return;
+          }
+          const updateRes = await fetch(`http://${window.location.hostname}:3030/api/auth/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPassword: password, newPassword: newPass }),
+            credentials: "include"
+          });
+          if (!updateRes.ok) {
+            setError('Failed to update password');
+            return;
+          }
+        }
         onLogin();
       } else {
         const data = await res.json();
         setError(data.error || 'Incorrect username or password');
       }
-    } catch (err: any) {
-      setError(err.message || 'Network error occurred');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error occurred';
+      setError(msg);
     } finally {
       setLoading(false);
     }

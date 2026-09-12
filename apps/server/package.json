@@ -1,13 +1,13 @@
 {
   "name": "server",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test": "tsx test.ts && tsx verify_p2.ts && tsx verify_removal.ts && tsx verify_p5.ts && tsx verify_p7.ts && tsx verify_p8.ts && tsx verify_p9.ts && tsx verify_p10.ts && tsx verify_p11.ts && tsx verify_p12.ts && tsx verify_p13.ts && tsx verify_p14.ts && tsx verify_p15.ts && tsx verify_p16.ts && tsx verify_p17.ts && tsx verify_p18.ts && tsx verify_p19.ts"
+    "test": "tsx test.ts && tsx verify_p2.ts && tsx verify_removal.ts && tsx verify_p5.ts && tsx verify_p7.ts && tsx verify_p8.ts && tsx verify_p9.ts && tsx verify_p10.ts && tsx verify_p11.ts && tsx verify_p12.ts && tsx verify_p13.ts && tsx verify_p14.ts && tsx verify_p15.ts && tsx verify_p16.ts && tsx verify_p17.ts && tsx verify_p18.ts && tsx verify_p19.ts && tsx verify_p19_5.ts && tsx verify_ux.ts && tsx verify_external_sync.ts"
   },
   "keywords": [],
   "author": "",

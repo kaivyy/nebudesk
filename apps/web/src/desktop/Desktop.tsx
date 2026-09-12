@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import MenuBar from './MenuBar';
 import CommandPalette from './CommandPalette';
 import Dock from './Dock';
 import { useWindowStore } from '../stores/windowStore';
 import FilesApp from '../apps/files/FilesApp';
 import TerminalApp from '../apps/terminal/TerminalApp';
-import BrowserApp from '../apps/browser/BrowserApp';
 import DockerApp from '../apps/docker/DockerApp';
 import ServicesApp from '../apps/services/ServicesApp';
 import CodeApp from '../apps/code/CodeApp';
@@ -25,31 +24,72 @@ export default function Desktop() {
   useEffect(() => { fetchTheme(); }, []);
   const windows = useWindowStore(state => state.windows);
   
-  // Picker State
-  const [pickerProps, setPickerProps] = useState<{ onSelect: (p: string) => void, onCancel: () => void, initialPath: string, mode: 'file' | 'folder' } | null>(null);
+  // Stored callbacks for active pickers indexed by pickerId
+  const pickerCallbacksRef = useRef<Record<string, { onSelect?: (p: string) => void, onCancel?: () => void }>>({});
 
   useEffect(() => {
-    const handlePickFolder = (e: any) => {
-      setPickerProps({
-        mode: 'folder',
-        initialPath: e.detail.initialPath || '/root',
-        onSelect: (path: string) => {
-          if (e.detail.onSelect) e.detail.onSelect(path);
-          setPickerProps(null);
-        },
-        onCancel: () => setPickerProps(null)
-      });
+    // Purge any stale picker windows from prior sessions on mount
+    const state = useWindowStore.getState();
+    const stalePickers = state.windows.filter(w => w.appId === 'picker');
+    stalePickers.forEach(w => state.closeWindow(w.id));
+  }, []);
+
+  useEffect(() => {
+    interface PickEventDetail {
+      initialPath?: string;
+      onSelect?: (p: string) => void;
+      onCancel?: () => void;
+    }
+    const handlePickFolder = (e: Event) => {
+      const detail = (e as CustomEvent<PickEventDetail>).detail || {};
+      const pickerId = 'picker_' + Date.now();
+      pickerCallbacksRef.current[pickerId] = {
+        onSelect: detail.onSelect,
+        onCancel: detail.onCancel
+      };
+      const w = Math.min(window.innerWidth - 60, 760);
+      const h = Math.min(window.innerHeight - 100, 520);
+      const x = Math.max(30, Math.round((window.innerWidth - w) / 2));
+      const y = Math.max(40, Math.round((window.innerHeight - h) / 2) - 20);
+      useWindowStore.getState().openWindow({
+        appId: 'picker',
+        title: 'Open Folder',
+        x, y,
+        width: w,
+        height: h,
+        minWidth: 540,
+        minHeight: 360,
+        minimized: false,
+        maximized: false,
+        path: detail.initialPath || '/root',
+        payload: { mode: 'folder', pickerId }
+      }, true);
     };
-    const handlePickFile = (e: any) => {
-      setPickerProps({
-        mode: 'file',
-        initialPath: e.detail.initialPath || '/root',
-        onSelect: (path: string) => {
-          if (e.detail.onSelect) e.detail.onSelect(path);
-          setPickerProps(null);
-        },
-        onCancel: () => setPickerProps(null)
-      });
+
+    const handlePickFile = (e: Event) => {
+      const detail = (e as CustomEvent<PickEventDetail>).detail || {};
+      const pickerId = 'picker_' + Date.now();
+      pickerCallbacksRef.current[pickerId] = {
+        onSelect: detail.onSelect,
+        onCancel: detail.onCancel
+      };
+      const w = Math.min(window.innerWidth - 60, 760);
+      const h = Math.min(window.innerHeight - 100, 520);
+      const x = Math.max(30, Math.round((window.innerWidth - w) / 2));
+      const y = Math.max(40, Math.round((window.innerHeight - h) / 2) - 20);
+      useWindowStore.getState().openWindow({
+        appId: 'picker',
+        title: 'Open File',
+        x, y,
+        width: w,
+        height: h,
+        minWidth: 540,
+        minHeight: 360,
+        minimized: false,
+        maximized: false,
+        path: detail.initialPath || '/root',
+        payload: { mode: 'file', pickerId }
+      }, true);
     };
     document.addEventListener('desktop:pick-folder', handlePickFolder);
     document.addEventListener('desktop:pick-file', handlePickFile);
@@ -65,32 +105,51 @@ export default function Desktop() {
       <div 
         className="fixed inset-0 w-full h-[100vh] -z-10"
         style={{ 
-          backgroundColor: wallpaper === 'solid-black' ? '#000000' : wallpaper === 'solid-gray' ? '#1f2937' : '#0f172a',
+          backgroundColor: wallpaper === 'solid-black' ? '#000000' : wallpaper === 'solid-gray' ? '#1f2937' : (wallpaper === 'solid-white' || wallpaper === 'white') ? '#f8fafc' : '#0f172a',
           backgroundImage: (wallpaper === 'nebu' || wallpaper === 'default') ? 'url(/wallpaper.jpg)' : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
       />
 
-      {pickerProps && <FilePicker {...pickerProps} />}
       <CommandPalette />
       <MenuBar />
       <div className="flex-1 relative z-0">
         {windows.map(win => (
           <Window key={win.id} win={win}>
-            {win.appId === 'files' && <FilesApp initialPath={(win as any).path} />}
+            {win.appId === 'files' && <FilesApp initialPath={win.path} />}
             {win.appId === 'terminal' && <TerminalApp winId={win.id} />}
-            {win.appId === 'browser' && <BrowserApp />}
-            {win.appId === 'code' && <CodeApp initialPath={(win as any).path} winId={win.id} />}
-                        {win.appId === 'docker' && <DockerApp />}
+            {win.appId === 'code' && <CodeApp initialPath={win.path || (win.payload?.file as string | undefined)} winId={win.id} />}
+            {win.appId === 'docker' && <DockerApp />}
             {win.appId === 'services' && <ServicesApp />}
             {win.appId === 'settings' && <SettingsApp />}
             {win.appId === 'tasks' && <TasksApp />}
             {win.appId === 'manager' && <AppsApp />}
-            {win.appId === 'image' && <ImageApp initialPath={(win as any).path} />}
-            {win.appId === 'docs' && <DocsApp initialPath={(win as any).path} />}
+            {win.appId === 'image' && <ImageApp initialPath={win.path} />}
+            {win.appId === 'docs' && <DocsApp initialPath={win.path} />}
             {win.appId === 'sheet' && <SheetApp />}
             {win.appId === 'slides' && <SlidesApp />}
+            {win.appId === 'picker' && (
+              <FilePicker
+                winId={win.id}
+                mode={(win.payload?.mode as 'file' | 'folder') || 'folder'}
+                initialPath={win.path || '/root'}
+                onSelect={(chosenPath) => {
+                  const pickerId = win.payload?.pickerId as string;
+                  const cb = pickerId ? pickerCallbacksRef.current[pickerId] : null;
+                  if (cb?.onSelect) cb.onSelect(chosenPath);
+                  if (pickerId) delete pickerCallbacksRef.current[pickerId];
+                  useWindowStore.getState().closeWindow(win.id);
+                }}
+                onCancel={() => {
+                  const pickerId = win.payload?.pickerId as string;
+                  const cb = pickerId ? pickerCallbacksRef.current[pickerId] : null;
+                  if (cb?.onCancel) cb.onCancel();
+                  if (pickerId) delete pickerCallbacksRef.current[pickerId];
+                  useWindowStore.getState().closeWindow(win.id);
+                }}
+              />
+            )}
           </Window>
         ))}
       </div>

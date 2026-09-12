@@ -1,6 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useWindowStore } from '../stores/windowStore';
-import { Terminal, Globe, Activity, Box, Search, X, LogOut, RefreshCw, Folder } from 'lucide-react';
+import { commandRegistry, useCommands, type CommandItem } from '../stores/commandRegistry';
+import { APP_REGISTRY } from '../config/appRegistry';
+import { API_BASE_URL } from '../config/api';
+import { Search, X, LogOut, RefreshCw } from 'lucide-react';
 
 export default function CommandPalette() {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,22 +12,59 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { openWindow } = useWindowStore();
 
-  const commands = [
-    { id: 'browser', title: 'Open Browser', icon: <Globe size={16} />, action: () => openWindow({ appId: 'browser', title: 'NebuBrowser', x: 150, y: 150, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'term', title: 'Open Terminal', icon: <Terminal size={16} />, action: () => openWindow({ appId: 'terminal', title: 'Terminal', x: 200, y: 150, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'files', title: 'Open File Explorer (Finder)', icon: <Folder size={16} />, action: () => openWindow({ appId: 'files', title: 'Files', x: 100, y: 100, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'docker', title: 'Open Docker Manager', icon: <Box size={16} />, action: () => openWindow({ appId: 'docker', title: 'Docker', x: 260, y: 210, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'tasks', title: 'Open Activity Monitor (Task Manager)', icon: <Activity size={16} />, action: () => openWindow({ appId: 'tasks', title: 'Task Manager', x: 230, y: 180, width: 700, height: 450, minWidth: 550, minHeight: 300, minimized: false, maximized: false }) },
-    { id: 'reload', title: 'Reload Desktop Window', icon: <RefreshCw size={16} />, action: () => window.location.reload() },
-    { id: 'logout', title: 'Log Out', icon: <LogOut size={16} />, action: async () => {
-      try {
-        await fetch(`http://${window.location.hostname}:3030/api/auth/logout`, { method: 'POST', credentials: 'include' });
-        window.location.reload();
-      } catch(e) {}
-    }}
-  ];
+  // Register all desktop applications and system commands
+  useEffect(() => {
+    const appCommands: CommandItem[] = Object.values(APP_REGISTRY).map(app => ({
+      id: `app-${app.id}`,
+      title: `Open ${app.title}`,
+      category: 'Applications',
+      icon: <img src={app.icon} alt={app.title} className="w-4 h-4 rounded-sm object-contain" />,
+      action: () => openWindow({
+        appId: app.id,
+        title: app.title,
+        x: 180,
+        y: 120,
+        width: app.defaultWidth,
+        height: app.defaultHeight,
+        minWidth: app.minWidth,
+        minHeight: app.minHeight,
+        minimized: false,
+        maximized: false
+      })
+    }));
 
-  const filteredCommands = commands.filter(c => c.title.toLowerCase().includes(query.toLowerCase()));
+    const systemCommands: CommandItem[] = [
+      {
+        id: 'reload',
+        title: 'Reload Desktop Window',
+        category: 'System',
+        icon: <RefreshCw size={16} />,
+        action: () => window.location.reload()
+      },
+      {
+        id: 'logout',
+        title: 'Log Out',
+        category: 'System',
+        icon: <LogOut size={16} />,
+        action: async () => {
+          try {
+            await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+            window.location.reload();
+          } catch {}
+        }
+      }
+    ];
+
+    const unregister = commandRegistry.registerMany([...appCommands, ...systemCommands]);
+    return unregister;
+  }, [openWindow]);
+
+  const allCommands = useCommands();
+
+  const filteredCommands = allCommands.filter(c => {
+    const q = query.toLowerCase();
+    return c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q);
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -36,8 +76,17 @@ export default function CommandPalette() {
         setSelectedIndex(0);
       }
     };
+    const handleToggle = () => {
+      setIsOpen(prev => !prev);
+      setQuery('');
+      setSelectedIndex(0);
+    };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('toggle-command-palette', handleToggle);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('toggle-command-palette', handleToggle);
+    };
   }, []);
 
   useEffect(() => {
@@ -48,9 +97,9 @@ export default function CommandPalette() {
 
   if (!isOpen) return null;
 
-  const executeCommand = (cmd: any) => {
+  const executeCommand = async (cmd: CommandItem) => {
     setIsOpen(false);
-    cmd.action();
+    await cmd.action();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -58,18 +107,18 @@ export default function CommandPalette() {
       setIsOpen(false);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev + 1) % filteredCommands.length);
+      setSelectedIndex(prev => (prev + 1) % Math.max(1, filteredCommands.length));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+      setSelectedIndex(prev => (prev - 1 + filteredCommands.length) % Math.max(1, filteredCommands.length));
     } else if (e.key === 'Enter' && filteredCommands[selectedIndex]) {
       e.preventDefault();
-      executeCommand(filteredCommands[selectedIndex]);
+      executeCommand(filteredCommands[selectedIndex]!);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100000] flex justify-center items-start pt-[20vh] bg-black/40 backdrop-blur-sm p-4" onClick={() => setIsOpen(false)}>
+    <div className="fixed inset-0 z-[100000] flex justify-center items-start pt-[15vh] bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsOpen(false)}>
       <div 
         className="w-full max-w-xl bg-[#1e1e1e]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
@@ -79,8 +128,8 @@ export default function CommandPalette() {
           <input
             ref={inputRef}
             type="text"
-            className="flex-1 bg-transparent text-white text-lg focus:outline-none placeholder-gray-500 font-medium"
-            placeholder="Search commands... (e.g. Terminal)"
+            className="flex-1 bg-transparent text-white text-base focus:outline-none placeholder-gray-500 font-medium"
+            placeholder="Type a command or search... (Ctrl+K)"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -99,17 +148,29 @@ export default function CommandPalette() {
               <div 
                 key={cmd.id}
                 onClick={() => executeCommand(cmd)}
-                className={`flex items-center px-4 py-3 mx-2 rounded-lg cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/10'}`}
+                className={`flex items-center justify-between px-4 py-2.5 mx-2 rounded-lg cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-white/10'}`}
                 onMouseEnter={() => setSelectedIndex(idx)}
               >
-                <div className={`mr-3 ${idx === selectedIndex ? 'text-white' : 'text-gray-400'}`}>
-                  {cmd.icon}
+                <div className="flex items-center space-x-3 overflow-hidden">
+                  <div className={`shrink-0 ${idx === selectedIndex ? 'text-white' : 'text-gray-400'}`}>
+                    {cmd.icon}
+                  </div>
+                  <div className="flex items-center space-x-2 truncate">
+                    <span className="font-medium text-sm truncate">{cmd.title}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold ${idx === selectedIndex ? 'bg-blue-700/80 text-blue-100' : 'bg-white/5 text-gray-400'}`}>
+                      {cmd.category}
+                    </span>
+                  </div>
                 </div>
-                <span className="font-medium">{cmd.title}</span>
+                {cmd.shortcut && (
+                  <kbd className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ml-2 ${idx === selectedIndex ? 'bg-blue-700 text-white' : 'bg-white/10 text-gray-400'}`}>
+                    {cmd.shortcut}
+                  </kbd>
+                )}
               </div>
             ))
           ) : (
-            <div className="px-6 py-8 text-center text-gray-500">
+            <div className="px-6 py-8 text-center text-gray-500 text-sm">
               No commands found matching "{query}"
             </div>
           )}

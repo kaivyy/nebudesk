@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Desktop from './desktop/Desktop';
 import Login from './Login';
 import { useWindowStore } from './stores/windowStore';
+import { apiFetch } from './config/api';
+import type { DesktopWindow } from './stores/windowStore';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -10,19 +12,18 @@ function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch(`http://${window.location.hostname}:3030/api/desktop`, { credentials: 'include' });
+        const res = await apiFetch('/api/desktop');
         if (res.ok) {
           setIsAuthenticated(true);
           const state = await res.json();
           try {
-            const windows = JSON.parse(state.windowsJson || '[]');
-            const highestZIndex = windows.reduce((max: number, w: any) => Math.max(max, w.zIndex || 0), 0);
+            const rawWindows: DesktopWindow[] = JSON.parse(state.windowsJson || '[]');
+            const windows = rawWindows.map(w => ({ ...w, focused: false }));
+            const highestZIndex = windows.reduce((max: number, w: DesktopWindow) => Math.max(max, w.zIndex || 0), 0);
             useWindowStore.setState({ windows, highestZIndex });
-          } catch(e) {}
-
-          // Subscription moved to windowStore.ts
+          } catch {}
         }
-      } catch (err) {}
+      } catch {}
       setIsLoading(false);
     };
     checkAuth();

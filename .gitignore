@@ -1,1 +1,8 @@
 node_modules/
+dist/
+*.db-shm
+*.db-wal
+*.db-journal
+*.db
+!apps/server/dev.db
+graphify-out/

@@ -6,13 +6,14 @@ const BASE = () => `http://${window.location.hostname}:3030`;
 interface SlideElement { id: string; type: 'text'; x: number; y: number; w: number; h: number; content: string; fontSize: number; color: string; bold: boolean; align: string; }
 interface Slide { id: string; bg: string; elements: SlideElement[]; }
 
+interface SlideDocItem { id: string; name: string; type?: string; content?: string; }
 export default function SlidesApp() {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [activeDoc, setActiveDoc] = useState<any>(null);
+  const [docs, setDocs] = useState<SlideDocItem[]>([]);
+  const [activeDoc, setActiveDoc] = useState<SlideDocItem | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [selectedEl, setSelectedEl] = useState<string | null>(null);
-  const saveTimer = useRef<any>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchDocs = async () => {
     const res = await fetch(`${BASE()}/api/docs?type=slide`, { credentials: 'include' });
@@ -27,7 +28,7 @@ export default function SlidesApp() {
     elements: [{ id: crypto.randomUUID(), type: 'text', x: 50, y: 150, w: 700, h: 80, content: 'Click to edit title', fontSize: 36, color: '#1a1a1a', bold: true, align: 'center' }]
   });
 
-  const loadDoc = async (doc: any) => {
+  const loadDoc = async (doc: SlideDocItem) => {
     const res = await fetch(`${BASE()}/api/docs/${doc.id}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
@@ -188,11 +189,12 @@ export default function SlidesApp() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-6xl mb-4">🎨</div>
-              <p className="text-gray-400 mb-4">Create a presentation to get started</p>
-              <button onClick={createDoc} className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">New Presentation</button>
+          <div className="flex-1 flex items-center justify-center bg-[#1e1e1e]">
+            <div className="text-center p-8 select-none">
+              <Presentation size={56} className="text-purple-400/40 stroke-[1.2] mx-auto mb-3" />
+              <p className="text-gray-300 font-medium text-sm mb-1">Pilih atau buat presentasi baru</p>
+              <p className="text-gray-500 text-xs mb-4">Tambahkan slide 16:9, susun teks visual, dan atur tata letak.</p>
+              <button onClick={createDoc} className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors shadow-xs">Buat Presentasi</button>
             </div>
           </div>
         )}

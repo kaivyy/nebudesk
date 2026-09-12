@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Plus, Trash2, Type } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Plus, Trash2, Type, FileText } from 'lucide-react';
 
 const BASE = () => `http://${window.location.hostname}:3030`;
 
+interface DocItem { id: string; name: string; type: string; content?: string; isFs?: boolean; path?: string; }
 export default function DocsApp({ initialPath }: { initialPath?: string }) {
-  const [docs, setDocs] = useState<any[]>([]);
-  const [activeDoc, setActiveDoc] = useState<any>(null);
+  const [docs, setDocs] = useState<DocItem[]>([]);
+  const [activeDoc, setActiveDoc] = useState<DocItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<any>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchDocs = async () => {
     const res = await fetch(`${BASE()}/api/docs?type=doc`, { credentials: 'include' });
@@ -39,7 +40,7 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
     }
   }, [initialPath]);
 
-  const loadDoc = async (doc: any) => {
+  const loadDoc = async (doc: DocItem) => {
     const res = await fetch(`${BASE()}/api/docs/${doc.id}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
@@ -186,10 +187,11 @@ export default function DocsApp({ initialPath }: { initialPath?: string }) {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-100">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📄</div>
-              <p className="text-gray-500 mb-4">Select a document or create a new one</p>
-              <button onClick={createDoc} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">New Document</button>
+            <div className="text-center p-8 select-none">
+              <FileText size={56} className="text-gray-300 stroke-[1.2] mx-auto mb-3" />
+              <p className="text-gray-600 font-medium text-sm mb-1">Pilih atau buat dokumen baru</p>
+              <p className="text-gray-400 text-xs mb-4">Mulai menulis dengan teks kaya, heading, dan daftar.</p>
+              <button onClick={createDoc} className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 transition-colors shadow-xs">Buat Dokumen</button>
             </div>
           </div>
         )}

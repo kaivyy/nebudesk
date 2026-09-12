@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useWindowStore } from '../stores/windowStore';
+import { DOCK_APPS } from '../config/appRegistry';
 
 export default function Dock() {
   const { windows, openWindow, bringToFront } = useWindowStore();
@@ -20,27 +21,23 @@ export default function Dock() {
     }
   };
 
-  const apps = [
-    { id: 'files', title: 'Finder', icon: '/icons/finder.png' },
-    { id: 'browser', title: 'NebuBrowser', icon: '/icons/safari.svg' },
-    { id: 'code', title: 'NebuCode', icon: '/icons/vscode.png' },
-    { id: 'terminal', title: 'Terminal', icon: '/icons/terminal.png' },
-    { id: 'tasks', title: 'Task Manager', icon: '/icons/automator.png' },
-    { id: 'docker', title: 'Docker', icon: '/icons/docker.png' },
-    { id: 'services', title: 'Services', icon: '/icons/services.svg' },
-    { id: 'docs', title: 'NebuDocs', icon: '/icons/pages.svg' },
-    { id: 'sheet', title: 'NebuSheet', icon: '/icons/numbers.svg' },
-    { id: 'slides', title: 'NebuSlides', icon: '/icons/keynote.svg' },
-    { id: 'manager', title: 'App Manager', icon: '/icons/manager.svg' },
-    { id: 'settings', title: 'System Settings', icon: '/icons/settings.png' }
-  ];
+  const apps = DOCK_APPS;
 
-  const { dockAutoHide } = useWindowStore();
+  const { dockAutoHide, dockSize, dockOpacity } = useWindowStore();
   const [isHovered, setIsHovered] = useState(false);
 
   // If autoHide is true, translate down if not hovered.
   // Note: we use Tailwind transform classes for the animation.
   const isHidden = dockAutoHide && !isHovered;
+
+  const alpha = Math.max(0, Math.min(100, typeof dockOpacity === 'number' ? dockOpacity : 20)) / 100;
+  const borderAlpha = Math.min(alpha + 0.1, 0.4);
+
+  const sizeClass = {
+    small: 'w-10 h-10',
+    medium: 'w-12 h-12 sm:w-14 sm:h-14',
+    large: 'w-16 h-16 sm:w-18 sm:h-18'
+  }[dockSize || 'medium'] || 'w-12 h-12 sm:w-14 sm:h-14';
 
   return (
     <>
@@ -53,7 +50,11 @@ export default function Dock() {
       )}
       
       <div 
-        className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-16px)] overflow-x-auto bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl p-2 flex space-x-2 z-[9999] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHidden ? 'translate-y-[150%]' : 'translate-y-0'}`}
+        className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-max max-w-[calc(100vw-16px)] overflow-x-auto backdrop-blur-xl border rounded-2xl p-2 flex space-x-2 z-[9999] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isHidden ? 'translate-y-[150%]' : 'translate-y-0'}`}
+        style={{
+          backgroundColor: `rgba(255, 255, 255, ${alpha})`,
+          borderColor: `rgba(255, 255, 255, ${borderAlpha})`
+        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -64,7 +65,7 @@ export default function Dock() {
               <button 
                 data-dock-id={app.id}
                 onClick={() => handleAppClick(app.id, app.title)}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none"
+                className={`${sizeClass} rounded-2xl flex items-center justify-center hover:-translate-y-2 hover:scale-110 transition-all duration-300 focus:outline-none`}
                 title={app.title}
               >
                 <img src={app.icon} alt={app.title} className="w-full h-full object-contain drop-shadow-md" />
