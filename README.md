@@ -1,6 +1,8 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/monitor.svg" width="100" alt="NebuDesk Logo" />
-  
+  <img src="docs/screenshots/nebudesk-desktop.png" alt="NebuDesk Web Desktop Environment" width="100%" />
+
+  <br /><br />
+
   # 🌌 NebuDesk
   
   **Your Lightweight Linux Server Desktop & Development Environment**
@@ -12,10 +14,6 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
   *NebuDesk transforms Linux Server Administration and Cloud Development into a familiar, high-performance Desktop Experience accessible directly from any web browser.*
-
-  <br />
-
-  <img src="docs/screenshots/nebudesk-desktop.png" alt="NebuDesk Web Desktop Environment" width="100%" />
 </div>
 
 ---
