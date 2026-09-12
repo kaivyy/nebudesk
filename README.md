@@ -1,8 +1,6 @@
 <div align="center">
   <img src="docs/screenshots/nebudesk-desktop.png" alt="NebuDesk Web Desktop Environment" width="100%" />
 
-  <br /><br />
-
   # 🌌 NebuDesk
   
   **Your Lightweight Linux Server Desktop & Development Environment**
