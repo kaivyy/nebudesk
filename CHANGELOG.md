@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.1] - 2026-09-14
+### 👤 Dynamic Home Directory & Non-Root Execution Support
+- **Dynamic Sandbox Root**: Backend `ALLOWED_ROOT` now dynamically detects the operating user home directory (`process.env.HOME || os.homedir() || '/root'`), enabling seamless execution under unprivileged accounts (`ubuntu`, `debian`, etc.).
+- **Transparent Path Aliasing & Migration**: `safeResolve()` resolves home aliases (`~`, `home`) and automatically remaps legacy saved session paths targeting `/root` to the active user's `$HOME`, eliminating 403 Forbidden errors and broken windows on existing databases.
+- **Server Config Endpoint**: Added `/api/config` public endpoint exposing `{ homeDir, platform }` and enriched `/api/desktop` state with `homeDir` and `username`.
+- **Dynamic Frontend Home Caching**: Frontend bootstrap now synchronizes and persists the user's home directory (`getCachedHomeDir()`) in localStorage.
+- **Universal Zero-Root Cleanliness**: Eliminated all hardcoded `/root` fallbacks across `FilesApp`, `CodeApp`, `FilePicker`, `Desktop`, and `MenuBar`.
+- **Graceful Permission Degradation**: Docker and PM2 endpoints return empty sets when unprivileged, and journalctl log inspection provides friendly permission guidance instead of HTTP 500 error banners.
+
+### ⚙️ Production Installer Hardening (`install.sh`)
+- **Port Conflict Logic**: Fixed false-positive port conflict errors for non-root users by checking PM2 process registrations alongside socket listeners.
+- **Automated Sudo Elevation**: Added automatic `sudo` support for non-root users when installing system packages (Node.js 22 LTS, tmux, ripgrep, git, curl) or PM2 globally.
+- **Deterministic Package Fallback**: Added automatic fallback to `npm install` if `npm ci` encounters lockfile platform discrepancies.
+- **Accurate Systemd Startup**: Configured PM2 systemd startup to detect `SUDO_USER` and assign appropriate home paths.
+- **Non-Root Onboarding Tips**: Added terminal setup tips at completion for boot startup (`pm2 startup`), Docker access, and journalctl logs.
+
+### 📖 Documentation & UX Polish
+- **Official Repository Links**: Updated clone URL to `https://github.com/kaivyy/nebudesk.git`.
+- **User Privilege Documentation**: Added dedicated section detailing root vs non-root operation, unprivileged port safety, and group memberships.
+- **Anti-Slop Copywriting**: Standardized formatting, removed em-dashes, and refined typography across README.md.
+
 ## [v0.2.0] - 2026-09-13
 ### 🖼️ Native Photos & Media Viewer App
 - **High-Performance Image & Video Viewer**: Built-in media application (`ImageApp.tsx`) supporting popular raster/vector formats (PNG, JPG, JPEG, GIF, WebP, SVG, BMP, ICO) and native video formats (MP4, WebM, OGG, MOV, MKV).
