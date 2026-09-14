@@ -42,7 +42,7 @@ NebuDesk is purposefully engineered for small VPS instances (even 1 vCPU / 1GB R
 ## 🚀 Installation & Quick Start
 
 ### 📋 Prerequisites
-- **Operating System**: Linux (`x86_64` or `arm64` / `aarch64`) — Debian, Ubuntu, or compatible distribution.
+- **Operating System**: Linux (`x86_64` or `arm64` / `aarch64`) on Debian, Ubuntu, or compatible distributions.
 - **Node.js**: Node.js `>= 20.x` & npm `>= 10.x` (Installer automatically installs Node 22 LTS if missing on Debian/Ubuntu).
 - **Core Utilities**: `git`, `curl`, `tmux` (terminal sessions), `ripgrep` (file search), `pm2` (process manager).
 
@@ -50,7 +50,7 @@ NebuDesk is purposefully engineered for small VPS instances (even 1 vCPU / 1GB R
 Run the idempotent installer on your Linux server:
 
 ```bash
-git clone https://github.com/your-username/nebudesk.git
+git clone https://github.com/kaivyy/nebudesk.git
 cd nebudesk
 ./install.sh
 ```
@@ -63,6 +63,19 @@ The installer executes a 7-step pipeline:
 5. **Production Build**: Compiles backend TypeScript (`tsc`) and bundles frontend SPA (`vite build`).
 6. **Database & Config**: Preserves existing SQLite database (`apps/server/dev.db`) and user credentials.
 7. **Service Setup & Health Check**: Starts/restarts services via PM2, configures systemd startup, and validates active HTTP health.
+
+### 👤 User Privileges (Root & Non-Root)
+NebuDesk supports both `root` and standard unprivileged users (e.g. `ubuntu`, `debian`):
+- **Unprivileged Ports**: Default ports `5050` and `3030` are `>= 1024` and do not require root privileges.
+- **Docker Manager (Optional)**: If running as non-root, add your user to the `docker` group:
+  ```bash
+  sudo usermod -aG docker $USER
+  ```
+- **System Service Logs (Optional)**: To inspect journalctl logs in the Services app without root:
+  ```bash
+  sudo usermod -aG systemd-journal,adm $USER
+  ```
+- **Autostart on Boot (Non-Root)**: Run `pm2 startup` and execute the printed sudo command for boot persistence.
 
 ### 🌐 Ports & Networking
 | Port | Protocol | Purpose | Access |

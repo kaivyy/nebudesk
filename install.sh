@@ -76,6 +76,13 @@ if [ "$NODE_OK" -eq 0 ]; then
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
     apt-get install -y nodejs
     echo -e "  ${GREEN}✓${NC} Node.js $(node -v) installed successfully."
+  elif [ "$IS_DEBIAN" -eq 1 ] && command -v sudo >/dev/null 2>&1; then
+    echo -e "  ${BLUE}--> Installing Node.js 22 LTS via NodeSource (sudo)...${NC}"
+    sudo apt-get update -y
+    sudo apt-get install -y curl ca-certificates gnupg
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    echo -e "  ${GREEN}✓${NC} Node.js $(node -v) installed successfully."
   else
     echo -e "${RED}❌ Node.js >= 20.x is required. Please install or upgrade Node.js on your system.${NC}"
     exit 1
@@ -106,6 +113,11 @@ if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
     apt-get update -y
     apt-get install -y "${MISSING_PKGS[@]}" build-essential
     echo -e "  ${GREEN}✓${NC} Core system utilities installed."
+  elif [ "$IS_DEBIAN" -eq 1 ] && command -v sudo >/dev/null 2>&1; then
+    echo -e "  ${BLUE}--> Installing missing core tools via sudo: ${MISSING_PKGS[*]}...${NC}"
+    sudo apt-get update -y
+    sudo apt-get install -y "${MISSING_PKGS[@]}" build-essential
+    echo -e "  ${GREEN}✓${NC} Core system utilities installed."
   else
     echo -e "${YELLOW}⚠️ Missing recommended utilities: ${MISSING_PKGS[*]}.${NC}"
     echo -e "${YELLOW}   Please install them using your package manager for full terminal & search functionality.${NC}"
@@ -117,7 +129,15 @@ fi
 # Check PM2
 if ! command -v pm2 >/dev/null 2>&1; then
   echo -e "  ${BLUE}--> Installing PM2 process manager globally...${NC}"
-  npm install -g pm2
+  if [ "$EUID" -eq 0 ]; then
+    npm install -g pm2
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo npm install -g pm2
+  else
+    echo -e "${RED}❌ Global PM2 installation requires root or sudo privileges.${NC}"
+    echo -e "   Please run: sudo npm install -g pm2"
+    exit 1
+  fi
   echo -e "  ${GREEN}✓${NC} PM2 installed."
 else
   echo -e "  ${GREEN}✓${NC} PM2 $(pm2 -v) available"
@@ -131,12 +151,20 @@ echo -e "\n${BOLD}[3/7] Checking ports and resources...${NC}"
 check_port() {
   local port=$1
   local service_name=$2
+  local pm2_app_name=$3
   if command -v ss >/dev/null 2>&1; then
     local listener
     listener=$(ss -tlnp 2>/dev/null | grep ":$port " || true)
     if [ -n "$listener" ]; then
       # Check if it belongs to an existing NebuDesk PM2 process
+      local is_nebudesk=0
       if echo "$listener" | grep -E "node" >/dev/null; then
+        is_nebudesk=1
+      elif command -v pm2 >/dev/null 2>&1 && pm2 describe "$pm2_app_name" >/dev/null 2>&1; then
+        is_nebudesk=1
+      fi
+
+      if [ "$is_nebudesk" -eq 1 ]; then
         echo -e "  ${YELLOW}ℹ️ Port $port is currently active (existing $service_name process). It will be updated.${NC}"
       else
         echo -e "${RED}❌ Port $port is in use by another service:${NC}\n$listener"
@@ -151,8 +179,8 @@ check_port() {
   fi
 }
 
-check_port 3030 "Backend API"
-check_port 5050 "Frontend Web"
+check_port 3030 "Backend API" "nebudesk-backend"
+check_port 5050 "Frontend Web" "nebudesk-frontend"
 
 # ------------------------------------------------------------------------------
 # [4/7] Installing Dependencies (Deterministic npm ci)
@@ -160,11 +188,17 @@ check_port 5050 "Frontend Web"
 echo -e "\n${BOLD}[4/7] Installing dependencies deterministically via lockfiles...${NC}"
 
 echo -e "  ${BLUE}--> Installing backend dependencies (apps/server)...${NC}"
-npm --prefix "$DIR/apps/server" ci --loglevel=error
+if ! npm --prefix "$DIR/apps/server" ci --loglevel=error; then
+  echo -e "  ${YELLOW}--> Retrying with standard npm install for backend...${NC}"
+  npm --prefix "$DIR/apps/server" install --loglevel=error
+fi
 echo -e "  ${GREEN}✓${NC} Backend dependencies installed."
 
 echo -e "  ${BLUE}--> Installing frontend dependencies (apps/web)...${NC}"
-npm --prefix "$DIR/apps/web" ci --loglevel=error
+if ! npm --prefix "$DIR/apps/web" ci --loglevel=error; then
+  echo -e "  ${YELLOW}--> Retrying with standard npm install for frontend...${NC}"
+  npm --prefix "$DIR/apps/web" install --loglevel=error
+fi
 echo -e "  ${GREEN}✓${NC} Frontend dependencies installed."
 
 # ------------------------------------------------------------------------------
@@ -228,7 +262,12 @@ pm2 save --force >/dev/null
 
 # Configure systemd startup if root
 if [ "$EUID" -eq 0 ]; then
-  env PATH="$PATH:/usr/bin" pm2 startup systemd -u "${SUDO_USER:-root}" --hp "${HOME:-/root}" >/dev/null 2>&1 || true
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    USER_HOME=$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || echo "/home/$SUDO_USER")
+    env PATH="$PATH:/usr/bin" pm2 startup systemd -u "$SUDO_USER" --hp "$USER_HOME" >/dev/null 2>&1 || true
+  else
+    env PATH="$PATH:/usr/bin" pm2 startup systemd -u root --hp /root >/dev/null 2>&1 || true
+  fi
 fi
 
 # ------------------------------------------------------------------------------
@@ -281,3 +320,10 @@ echo "  • View logs    : pm2 logs"
 echo "  • Restart      : pm2 restart all"
 echo "  • Stop         : pm2 stop all"
 echo ""
+if [ "$EUID" -ne 0 ]; then
+  echo -e "${BOLD}Non-Root Environment Tips:${NC}"
+  echo "  • Enable autostart on boot : run 'pm2 startup' and run the command it displays"
+  echo "  • Docker manager (optional): sudo usermod -aG docker \$USER"
+  echo "  • Journal logs (optional)  : sudo usermod -aG systemd-journal,adm \$USER"
+  echo ""
+fi
