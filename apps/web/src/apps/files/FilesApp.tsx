@@ -7,6 +7,7 @@ import {
   Monitor, List, Upload, RefreshCw
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
+import { getCachedHomeDir } from '../../config/api';
 
 interface FileEntry {
   name: string;
@@ -66,9 +67,11 @@ const FolderIcon = ({ children }: { children?: React.ReactNode }) => (
   </div>
 );
 
-export default function FilesApp({ initialPath = '/root' }: { initialPath?: string }) {
-  const [currentPath, setCurrentPath] = useState(initialPath);
-  const [history, setHistory] = useState([initialPath || '/root']);
+export default function FilesApp({ initialPath }: { initialPath?: string }) {
+  const homePath = getCachedHomeDir();
+  const startPath = initialPath || homePath;
+  const [currentPath, setCurrentPath] = useState(startPath);
+  const [history, setHistory] = useState([startPath]);
   const [historyIdx, setHistoryIdx] = useState(0);
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [error, setError] = useState('');
@@ -343,8 +346,8 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
       <div className="flex-1 overflow-y-auto py-2 space-y-1 nebudesk-no-drag">
 
             <div className="mt-2 mb-1 px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Favorit</div>
-            <SidebarItem icon={Home} label="Home" path="/root" isActive={currentPath === '/root'} />
-            <SidebarItem icon={Monitor} label="NebuDesk" path="/root/nebudesk" isActive={currentPath === '/root/nebudesk'} />
+            <SidebarItem icon={Home} label="Home" path={homePath} isActive={currentPath === homePath} />
+            <SidebarItem icon={Monitor} label="NebuDesk" path={`${homePath}/nebudesk`} isActive={currentPath === `${homePath}/nebudesk`} />
           
       </div>
     </div>
@@ -360,7 +363,7 @@ export default function FilesApp({ initialPath = '/root' }: { initialPath?: stri
             <button onClick={goBack} disabled={historyIdx === 0} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronLeft size={20} /></button>
             <button onClick={goForward} disabled={historyIdx >= history.length - 1} className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"><ChevronRight size={20} /></button>
           </div>
-          <h1 className="font-semibold text-gray-800 text-sm truncate max-w-[80px] sm:max-w-[200px]">{currentPath.split('/').pop() || 'Root'}</h1>
+          <h1 className="font-semibold text-gray-800 text-sm truncate max-w-[80px] sm:max-w-[200px]">{currentPath === homePath ? 'Home' : (currentPath.split('/').pop() || 'Home')}</h1>
         </div>
 
         {/* 3. Flexible Spacer */}

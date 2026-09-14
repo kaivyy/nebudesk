@@ -3,7 +3,7 @@ import {
   Folder, File, ChevronLeft, ChevronRight, ChevronUp, RotateCw, 
   Search, X, Check, Eye, EyeOff, Edit3, ArrowUp, ArrowDown 
 } from 'lucide-react';
-import { apiJson } from '../config/api';
+import { apiJson, getCachedHomeDir } from '../config/api';
 import { getFileInfo, formatSize } from '../apps/files/FilesApp';
 
 export interface FilePickerProps {
@@ -31,11 +31,13 @@ const MEDIA_EXTS = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico|mp4|mov|webm|mp3|wav|fl
 export default function FilePicker({ 
   onSelect, 
   onCancel, 
-  initialPath = '/root',
+  initialPath, 
   mode = 'folder'
 }: FilePickerProps) {
-  const [currentPath, setCurrentPath] = useState(initialPath || '/root');
-  const [history, setHistory] = useState<string[]>([initialPath || '/root']);
+  const homePath = getCachedHomeDir();
+  const startPath = initialPath || homePath;
+  const [currentPath, setCurrentPath] = useState(startPath);
+  const [history, setHistory] = useState<string[]>([startPath]);
   const [historyIdx, setHistoryIdx] = useState<number>(0);
   
   const [items, setItems] = useState<FileItem[]>([]);
@@ -182,7 +184,7 @@ export default function FilePicker({
 
   const handleCommitPathInput = () => {
     let target = pathInputVal.trim();
-    if (!target) target = '/root';
+    if (!target) target = homePath;
     if (!target.startsWith('/')) target = '/' + target;
     setEditingPath(false);
     navigateTo(target);

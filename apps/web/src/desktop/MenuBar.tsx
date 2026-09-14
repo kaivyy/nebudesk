@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useWindowStore } from '../stores/windowStore';
 import { useThemeStore } from '../stores/themeStore';
 import { Apple, Wifi, BatteryFull, Search, SlidersHorizontal } from 'lucide-react';
+import { getCachedHomeDir } from '../config/api';
 
 export default function MenuBar() {
   const { windows, openWindow, closeWindow, bringToFront } = useWindowStore();
@@ -47,7 +48,7 @@ export default function MenuBar() {
   const handleOpenFolder = () => {
     document.dispatchEvent(new CustomEvent('desktop:pick-folder', { 
       detail: {
-        initialPath: '/root',
+        initialPath: getCachedHomeDir(),
         onSelect: (p: string) => {
           if (focusedWindow?.appId === 'files') {
             openWindow({ appId: 'files', title: 'Files', x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, path: p } as any, true);
@@ -62,7 +63,7 @@ export default function MenuBar() {
   const handleOpenFile = () => {
     document.dispatchEvent(new CustomEvent('desktop:pick-file', { 
       detail: {
-        initialPath: '/root',
+        initialPath: getCachedHomeDir(),
         onSelect: (p: string) => {
           openWindow({ appId: 'code', title: `Code - ${p}`, x: 130 + Math.random()*30, y: 130 + Math.random()*30, width: 800, height: 600, minWidth: 550, minHeight: 300, minimized: false, maximized: false, path: p, payload: { file: p } } as any, true);
         }

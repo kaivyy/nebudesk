@@ -117,6 +117,10 @@ fastify.get('/api/health', async () => {
   return { status: 'ok', uptime: process.uptime(), timestamp: Date.now() };
 });
 
+fastify.get('/api/config', async () => {
+  return { homeDir: ALLOWED_ROOT, platform: process.platform };
+});
+
 fastify.post('/api/auth/login', async (request, reply) => {
   const { username, password } = request.body as any;
   const user: any = await dbGet(`SELECT * FROM User WHERE username = ?`, [username]);
@@ -157,8 +161,12 @@ fastify.post('/api/auth/logout', async (request, reply) => {
 });
 
 fastify.get('/api/desktop', { preValidation: [fastify.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
-  const state = await dbGet(`SELECT * FROM DesktopState WHERE userId = ?`, [request.user.id]);
-  return state;
+  const state = await dbGet<DesktopStateRow>(`SELECT * FROM DesktopState WHERE userId = ?`, [request.user.id]);
+  return {
+    ...(state || {}),
+    homeDir: ALLOWED_ROOT,
+    username: request.user?.username || 'user'
+  };
 });
 
 fastify.patch('/api/desktop', { preValidation: [fastify.authenticate] }, async (request, reply) => {
@@ -579,6 +587,9 @@ fastify.get('/api/pm2/apps', { preValidation: [fastify.authenticate] }, async (r
     return JSON.parse(stdout);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('command not found') || message.includes('ENOENT') || message.includes('EACCES')) {
+      return [];
+    }
     return reply.status(500).send({ error: message });
   }
 });
@@ -589,6 +600,9 @@ fastify.get('/api/docker/containers', { preValidation: [fastify.authenticate] },
     return containers;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('EACCES') || message.includes('permission denied') || message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
+      return [];
+    }
     return reply.status(500).send({ error: message });
   }
 });
@@ -637,6 +651,9 @@ fastify.get('/api/services/logs', { preValidation: [fastify.authenticate] }, asy
     return { logs: stdout };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('permission') || message.includes('No journal files were opened')) {
+      return { logs: '[Notice] Journal log access requires membership in "systemd-journal" or "adm" group:\nsudo usermod -aG systemd-journal $USER' };
+    }
     return reply.status(500).send({ error: message });
   }
 });

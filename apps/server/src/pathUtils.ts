@@ -1,7 +1,8 @@
 import path from 'path';
 import fs from 'fs/promises';
+import os from 'os';
 
-export const ALLOWED_ROOT = process.env.HOME || '/root';
+export const ALLOWED_ROOT = process.env.HOME || os.homedir() || '/root';
 
 export async function safeResolve(p: string): Promise<string> {
   let decoded = p;
@@ -15,8 +16,23 @@ export async function safeResolve(p: string): Promise<string> {
     }
   }
 
+  // Handle empty or user-home aliases
+  if (!decoded || decoded === '~' || decoded === 'home') {
+    return ALLOWED_ROOT;
+  }
+
+  // Seamless migration: if non-root user accesses legacy /root or /root/..., map to user home
+  if (ALLOWED_ROOT !== '/root') {
+    if (decoded === '/root') {
+      return ALLOWED_ROOT;
+    }
+    if (decoded.startsWith('/root/')) {
+      decoded = path.join(ALLOWED_ROOT, decoded.slice(6));
+    }
+  }
+
   const targetPath = path.resolve(ALLOWED_ROOT, decoded.replace(/^\//, ''));
-  // Handle frontend sending absolute paths like /root directly
+  // Handle frontend sending absolute paths like /home/username directly
   const resolvedPath = path.isAbsolute(decoded) ? path.normalize(decoded) : targetPath;
   
   // Basic prefix check first

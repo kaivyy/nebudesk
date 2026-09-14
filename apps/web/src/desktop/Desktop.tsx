@@ -18,6 +18,7 @@ import SlidesApp from '../apps/slides/SlidesApp';
 import FilePicker from './FilePicker';
 import Window from './Window';
 import { useThemeStore } from '../stores/themeStore';
+import { getCachedHomeDir } from '../config/api';
 
 export default function Desktop() {
   const { wallpaper, theme, fetchTheme } = useThemeStore();
@@ -61,7 +62,7 @@ export default function Desktop() {
         minHeight: 360,
         minimized: false,
         maximized: false,
-        path: detail.initialPath || '/root',
+        path: detail.initialPath || getCachedHomeDir(),
         payload: { mode: 'folder', pickerId }
       }, true);
     };
@@ -87,7 +88,7 @@ export default function Desktop() {
         minHeight: 360,
         minimized: false,
         maximized: false,
-        path: detail.initialPath || '/root',
+        path: detail.initialPath || getCachedHomeDir(),
         payload: { mode: 'file', pickerId }
       }, true);
     };
@@ -133,7 +134,7 @@ export default function Desktop() {
               <FilePicker
                 winId={win.id}
                 mode={(win.payload?.mode as 'file' | 'folder') || 'folder'}
-                initialPath={win.path || '/root'}
+                initialPath={win.path || getCachedHomeDir()}
                 onSelect={(chosenPath) => {
                   const pickerId = win.payload?.pickerId as string;
                   const cb = pickerId ? pickerCallbacksRef.current[pickerId] : null;

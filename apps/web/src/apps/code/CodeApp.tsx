@@ -15,7 +15,7 @@ import {
   Crosshair, ChevronsDownUp, ZoomIn, ZoomOut, Maximize, Music,
   Image as ImageIcon, FolderOpen, Code2
 } from 'lucide-react';
-import { WS_BASE_URL, API_BASE_URL, apiFetch, apiJson } from '../../config/api';
+import { WS_BASE_URL, API_BASE_URL, apiFetch, apiJson, getCachedHomeDir } from '../../config/api';
 import { safeStorage } from '../../utils/safeStorage';
 import { commandRegistry } from '../../stores/commandRegistry';
 
@@ -619,10 +619,10 @@ export default function CodeApp({ initialPath = '', winId = '' }: { initialPath?
   const closedTabsRef = useRef<string[]>([]);
 
   const getInitialWorkspace = () => {
-    if (!initialPath) return '/root';
+    if (!initialPath) return getCachedHomeDir();
     const parts = initialPath.split('/');
     if (parts.length > 1 && parts[parts.length - 1]?.includes('.')) {
-      return parts.slice(0, -1).join('/') || '/';
+      return parts.slice(0, -1).join('/') || getCachedHomeDir();
     }
     return initialPath;
   };

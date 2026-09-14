@@ -30,3 +30,26 @@ export async function apiJson<T = unknown>(endpoint: string, options: RequestIni
   }
   return res.json() as Promise<T>;
 }
+
+let cachedHomeDir = '';
+
+export function getCachedHomeDir(): string {
+  if (cachedHomeDir) return cachedHomeDir;
+  try {
+    const saved = localStorage.getItem('nebudesk_user_home');
+    if (saved && saved.startsWith('/')) {
+      cachedHomeDir = saved;
+      return saved;
+    }
+  } catch {}
+  return '/root';
+}
+
+export function setCachedHomeDir(home: string): void {
+  if (!home || typeof home !== 'string' || !home.startsWith('/')) return;
+  cachedHomeDir = home;
+  try {
+    localStorage.setItem('nebudesk_user_home', home);
+  } catch {}
+}
+
